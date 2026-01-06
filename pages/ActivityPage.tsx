@@ -29,7 +29,6 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
   const [isTracking, setIsTracking] = useState(false);
   const [currentDistance, setCurrentDistance] = useState(0);
   const [currentDuration, setCurrentDuration] = useState(0);
-  const [isEstimating, setIsEstimating] = useState(false);
   const [watchId, setWatchId] = useState<number | null>(null);
   const [suggestedRoutesData, setSuggestedRoutesData] = useState<{text: string, sources: any[]} | null>(null);
   const [isFindingRoutes, setIsFindingRoutes] = useState(false);
@@ -51,7 +50,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
   };
 
   const startTracking = () => {
-    if (!navigator.geolocation) {
+    if (!navigator.mediaDevices || !navigator.geolocation) {
       alert("Field sensors not available (Geolocation denied).");
       return;
     }
@@ -88,7 +87,6 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
     if (timerRef.current !== null) clearInterval(timerRef.current);
     
     setIsTracking(false);
-    setIsEstimating(true);
 
     try {
       const burn = await estimateActivityBurn('run', currentDistance, currentDuration, profile);
@@ -105,8 +103,6 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
       setActivities([newActivity, ...activities]);
     } catch (e) {
       console.error(e);
-    } finally {
-      setIsEstimating(false);
     }
   };
 
@@ -135,7 +131,6 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
 
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-24">
-      {/* HUD Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-zinc-900 pb-8 relative overflow-hidden">
         <div className="scanline"></div>
         <div className="flex-1 space-y-4">
@@ -165,9 +160,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Main Telemetry & Map */}
         <div className="lg:col-span-8 space-y-8">
-           {/* Stylized Radar Map View */}
            <div className="glass-panel rounded-[3rem] aspect-video relative overflow-hidden hud-border flex items-center justify-center bg-black">
               <div className="absolute inset-0 opacity-20 pointer-events-none">
                  <div className="absolute inset-0 border border-zinc-800 rounded-full scale-[0.2]"></div>
@@ -178,11 +171,10 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
                  <div className="absolute left-1/2 h-full w-px bg-zinc-800"></div>
               </div>
 
-              {/* Path Visualization */}
               <svg viewBox="0 0 400 300" className="w-full h-full p-10 z-10">
                 {pathRef.current.length > 1 && (
                   <path
-                    d={`M ${pathRef.current.map((p, i) => {
+                    d={`M ${pathRef.current.map((p) => {
                       const scale = 20000;
                       const x = 200 + (p.lng - pathRef.current[0].lng) * scale;
                       const y = 150 - (p.lat - pathRef.current[0].lat) * scale;
@@ -196,7 +188,6 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
                     className="drop-shadow-[0_0_8px_#a3e635]"
                   />
                 )}
-                {/* User Current Position Dot */}
                 {pathRef.current.length > 0 && (
                   <circle 
                     cx={200 + (pathRef.current[pathRef.current.length - 1].lng - pathRef.current[0].lng) * 20000}
@@ -228,7 +219,6 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
               </div>
            </div>
 
-           {/* Metrics Grid */}
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <FieldMetric label="Distance" value={(currentDistance / 1000).toFixed(2)} unit="KM" icon={<Navigation size={20} />} color="lime" />
               <FieldMetric label="Time Active" value={formatTime(currentDuration)} unit="MIN" icon={<Clock size={20} />} color="white" />
@@ -236,7 +226,6 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
            </div>
         </div>
 
-        {/* Intelligence Sidebar */}
         <div className="lg:col-span-4 space-y-8">
            <div className="glass-panel p-10 rounded-[3rem] space-y-8 hud-border">
               <h3 className="text-[11px] font-black text-zinc-500 tracking-[0.4em] uppercase">Intelligence Node</h3>
@@ -263,8 +252,8 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
                        <div className="text-xs text-zinc-400 leading-relaxed font-bold italic border-l-2 border-lime-400/20 pl-4 py-2 uppercase">
                           {suggestedRoutesData.text}
                        </div>
-                       {suggestedRoutesData.sources.map((source: any, i: number) => (
-                          <a key={i} href={source.web?.uri} target="_blank" className="flex items-center justify-between p-4 bg-zinc-900/50 rounded-2xl border border-zinc-800 hover:border-lime-400/20 transition-tactical group">
+                       {suggestedRoutesData.sources.map((source: any) => (
+                          <a key={source.web?.uri} href={source.web?.uri} target="_blank" className="flex items-center justify-between p-4 bg-zinc-900/50 rounded-2xl border border-zinc-800 hover:border-lime-400/20 transition-tactical group">
                              <div className="flex items-center gap-3">
                                 <Route size={14} className="text-zinc-600 group-hover:text-lime-400" />
                                 <span className="text-[10px] font-black text-zinc-400 group-hover:text-white truncate max-w-[150px] uppercase">{source.web?.title || 'External Source'}</span>
@@ -288,7 +277,6 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
         </div>
       </div>
 
-      {/* History Node */}
       <div className="space-y-8">
         <div className="flex items-center gap-6 px-4">
           <h3 className="text-[11px] font-black text-zinc-600 uppercase tracking-[0.4em] flex items-center gap-4">

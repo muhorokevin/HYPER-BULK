@@ -101,14 +101,13 @@ export const generatePersonalizedWorkout = async (profile: UserProfile, intent: 
 
 export const analyzeFuelVariance = async (planned: Meal[], actual: Meal[], profile: UserProfile) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const planSum = planned.reduce((acc, m) => ({ c: acc.c + (Number(m.calories) || 0), p: acc.p + (Number(m.protein) || 0) }), { c: 0, p: 0 });
   const actualSum = actual.reduce((acc, m) => ({ c: acc.c + (Number(m.calories) || 0), p: acc.p + (Number(m.protein) || 0) }), { c: 0, p: 0 });
 
-  const prompt = `Perform a Fuel Variance Analysis.
-    Planned Intake: ${planSum.c}kcal, ${planSum.p}g protein.
-    Actual Intake: ${actualSum.c}kcal, ${actualSum.p}g protein.
+  const prompt = `Perform a Fuel Tactical Analysis.
+    Current Intake: ${actualSum.c}kcal, ${actualSum.p}g protein.
+    Daily Goal: ${profile.dailyCalorieGoal}kcal.
     Goal: Bulking (Mass Gain).
-    Compare these datasets and provide a tactical verdict on adherence for muscle growth.`;
+    Analyze adherence and provide a tactical verdict for muscle growth.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -195,18 +194,15 @@ export const generateAudioBriefing = async (profile: UserProfile, meals: Meal[],
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const totalCal = meals.reduce((s, m) => s + (Number(m.calories) || 0), 0);
   
-  // Simplify prompt to minimize potential 500 errors from complex instructions in TTS
   const prompt = `Briefing for Pilot ${profile.displayName}. Current fuel levels: ${totalCal} calories today. Target: Maximum Muscle Hypertrophy. Operational Status: Aggressive Bulking Phase. Proceed with heavy lifting.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
     contents: [{ parts: [{ text: prompt }] }],
     config: {
-      // Use string literal to ensure compatibility
       responseModalities: ["AUDIO"],
       speechConfig: {
         voiceConfig: {
-          // Switching to Kore as a fallback to see if voice 'Puck' causes the 500
           prebuiltVoiceConfig: { voiceName: 'Kore' },
         },
       },
@@ -252,7 +248,7 @@ export const estimateMealMacros = async (mealDescription: string) => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Analyze macros for a bulking athlete: "${mealDescription}". Focus on identifying calorie-dense ingredients.`,
+    contents: `Analyze macros for a bulking athlete. Describe exactly what is in: "${mealDescription}". Focus on identifying calorie-dense ingredients and be slightly generous with portion sizes to ensure the surplus target is monitored safely.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {

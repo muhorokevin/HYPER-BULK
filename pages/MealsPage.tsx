@@ -5,22 +5,14 @@ import {
   Loader2, 
   Trash2, 
   Clock, 
-  Zap, 
   BrainCircuit, 
-  Star,
-  Settings2,
-  ChevronRight,
-  Target,
-  ShieldCheck,
   Flame,
-  Activity,
-  CalendarDays,
-  Scale,
+  History,
   Camera,
-  Upload,
   PieChart as PieChartIcon,
-  X,
-  History
+  Zap,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Meal, MealSlot, UserProfile } from '../types.ts';
@@ -101,6 +93,18 @@ const MealsPage: React.FC<{
     }
   };
 
+  const handleRunVariance = async () => {
+    setIsAnalyzing(true);
+    try {
+      const report = await analyzeFuelVariance([], currentMeals, profile);
+      setVarianceReport(report);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const deleteMeal = (id: string) => {
     setMeals(prev => prev.filter(m => m.id !== id));
   };
@@ -156,7 +160,6 @@ const MealsPage: React.FC<{
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        {/* Logging Input */}
         <div className="lg:col-span-8 space-y-8">
           <div className="glass-panel rounded-[2.5rem] p-4 relative group hud-border">
             <form onSubmit={handleAddFuel} className="relative flex flex-col md:flex-row items-stretch gap-4">
@@ -168,7 +171,7 @@ const MealsPage: React.FC<{
                   type="text" 
                   value={description} 
                   onChange={(e) => setDescription(e.target.value)} 
-                  placeholder={viewMode === 'PLAN' ? `Plan fuel for tomorrow's ${selectedSlot}` : `Log intake for ${selectedSlot}`} 
+                  placeholder={viewMode === 'PLAN' ? `Plan fuel for tomorrow's ${selectedSlot}` : `Log intake (e.g. "3 eggs and avocado")`} 
                   className="w-full bg-zinc-950 border-2 border-zinc-900 rounded-3xl py-7 pl-16 pr-6 text-white font-bold placeholder-zinc-800 focus:outline-none focus:border-lime-400/50 transition-tactical text-lg uppercase tracking-tight" 
                   disabled={isEstimating} 
                 />
@@ -187,7 +190,7 @@ const MealsPage: React.FC<{
                   disabled={isEstimating || !description} 
                   className="bg-lime-400 hover:bg-lime-300 disabled:bg-zinc-900 disabled:text-zinc-800 text-black font-black py-6 px-12 rounded-3xl transition-tactical flex items-center justify-center gap-4 active:scale-95 shadow-2xl shadow-lime-400/20"
                 >
-                  {isEstimating ? <Loader2 className="animate-spin" size={24} /> : (viewMode === 'PLAN' ? <CalendarDays size={24} /> : <Plus size={24} />)} 
+                  {isEstimating ? <Loader2 className="animate-spin" size={24} /> : (viewMode === 'PLAN' ? <Clock size={24} /> : <Plus size={24} />)} 
                   <span className="tracking-[0.2em] uppercase text-xs">{viewMode === 'PLAN' ? 'Commit Plan' : 'Log Fuel'}</span>
                 </button>
               </div>
@@ -200,7 +203,7 @@ const MealsPage: React.FC<{
               <button 
                 key={slot} 
                 onClick={() => setSelectedSlot(slot)} 
-                className={`px-4 py-5 rounded-2xl font-black text-[9px] tracking-[0.2em] transition-tactical border ${selectedSlot === slot ? 'bg-lime-400 text-black border-lime-400 shadow-[0_0_20px_rgba(163,230,53,0.3)] scale-105' : 'bg-zinc-900/50 text-zinc-600 border-zinc-800 hover:border-zinc-700 hover:text-zinc-300'}`}
+                className={`px-4 py-5 rounded-2xl font-black text-[9px] tracking-[0.2em] transition-tactical border ${selectedSlot === slot ? 'bg-lime-400 text-black border-lime-400 shadow-[0_0_20px_rgba(163,230,53,0.3)] scale-105' : 'bg-zinc-900/50 text-zinc-600 border-zinc-800 hover:text-zinc-300'}`}
               >
                 {slot}
               </button>
@@ -261,8 +264,10 @@ const MealsPage: React.FC<{
         {/* Analytics Sidebar */}
         <div className="lg:col-span-4 space-y-8">
            <div className="glass-panel p-10 rounded-[3rem] hud-border sticky top-32">
-              <h3 className="text-[11px] font-black text-zinc-500 tracking-[0.4em] uppercase mb-10">Macro Saturation</h3>
-              <div className="h-[250px] w-full">
+              <h3 className="text-[11px] font-black text-zinc-500 tracking-[0.4em] uppercase mb-10 flex items-center gap-2">
+                <PieChartIcon size={14} /> Macro Saturation
+              </h3>
+              <div className="h-[200px] w-full">
                  <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                        <Pie
@@ -298,12 +303,37 @@ const MealsPage: React.FC<{
               </div>
 
               <div className="mt-10 pt-10 border-t border-zinc-900 space-y-6">
-                 <h4 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
-                    <Target size={14} className="text-lime-400" /> Operational Efficiency
-                 </h4>
-                 <p className="text-[11px] text-zinc-500 font-bold leading-relaxed italic uppercase">
-                    Mass gain requires a consistent caloric surplus. Aim for <span className="text-lime-400">2.2g of protein per kg</span> of body mass for optimal repair.
-                 </p>
+                 <button 
+                  onClick={handleRunVariance}
+                  disabled={isAnalyzing || currentMeals.length === 0}
+                  className="w-full py-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center gap-3 text-lime-400 font-black text-[10px] tracking-widest uppercase transition-all hover:bg-lime-400/5 disabled:opacity-50"
+                 >
+                   {isAnalyzing ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                   Tactical Fuel Verdict
+                 </button>
+
+                 {varianceReport && (
+                   <div className="p-5 bg-zinc-950 rounded-2xl border border-lime-400/20 space-y-3 animate-in fade-in zoom-in-95">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-lime-400 uppercase tracking-widest">AI Verdict</span>
+                        <div className="flex items-center gap-1">
+                          <ShieldCheck size={12} className="text-lime-400" />
+                          <span className="text-[10px] font-black text-white">{varianceReport.adherenceScore}%</span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] font-bold text-zinc-300 leading-relaxed italic uppercase">"{varianceReport.verdict}"</p>
+                      <div className="flex items-start gap-2 pt-2 border-t border-zinc-900">
+                        <AlertTriangle size={14} className="text-orange-500 shrink-0 mt-0.5" />
+                        <p className="text-[9px] font-black text-orange-500 uppercase leading-tight">{varianceReport.correctiveAction}</p>
+                      </div>
+                   </div>
+                 )}
+                 
+                 {!varianceReport && (
+                    <p className="text-[11px] text-zinc-500 font-bold leading-relaxed italic uppercase">
+                      Mass gain requires a consistent caloric surplus. Aim for <span className="text-lime-400">2.2g of protein per kg</span> for optimal muscle repair.
+                    </p>
+                 )}
               </div>
            </div>
         </div>
