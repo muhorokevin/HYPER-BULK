@@ -31,7 +31,7 @@ export const suggestRoutes = async (lat: number, lng: number) => {
 
 export const findLocalGyms = async (lat: number, lng: number) => {
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3-pro-preview",
     contents: `Find high-rated gyms with fair pricing near the location ${lat}, ${lng}. List the top 3 with their specific names and why they are recommended.`,
     config: {
       tools: [{ googleMaps: {} }],
@@ -54,15 +54,16 @@ export const findLocalGyms = async (lat: number, lng: number) => {
 
 export const generatePersonalizedWorkout = async (profile: UserProfile, intent: string, environment: string) => {
   const equipment = profile.availableEquipment?.join(', ') || 'None (Bodyweight only)';
-  const prompt = `Generate a tactical workout plan. 
+  const prompt = `Generate a tactical workout plan for a pilot focused on bulking. 
     Pilot: ${profile.displayName}
+    Current Weight: ${profile.weight}kg
     Goal: ${profile.goalType}
     Environment: ${environment}
     Available Equipment: ${equipment}
     Preferred Gym/Location context: ${profile.preferredGym || 'Not specified'}
     User Intent: ${intent}
     
-    Ensure exercises match available equipment. If home workout, focus on high-efficiency bodyweight or minimal gear movements.`;
+    Focus on compound movements and progressive overload for muscle hypertrophy.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -104,8 +105,8 @@ export const analyzeFuelVariance = async (planned: Meal[], actual: Meal[], profi
   const prompt = `Perform a Fuel Variance Analysis.
     Planned Intake: ${planSum.c}kcal, ${planSum.p}g protein.
     Actual Intake: ${actualSum.c}kcal, ${actualSum.p}g protein.
-    Goal: ${profile.goalType}.
-    Compare these datasets and provide a tactical verdict on adherence.`;
+    Goal: Bulking (Mass Gain).
+    Compare these datasets and provide a tactical verdict on adherence for muscle growth.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -160,7 +161,7 @@ export const generatePeriodReview = async (
   periodType: 'week' | 'month'
 ) => {
   const totalCals = meals.reduce((s, m) => s + (Number(m.calories) || 0), 0);
-  const prompt = `Perform a high-level tactical review for a ${periodType}ly period. Pilot: ${profile.displayName}, Total: ${totalCals}kcal.`;
+  const prompt = `Perform a high-level tactical review for a ${periodType}ly period. Pilot: ${profile.displayName}, Focus: Aggressive Bulking. Total: ${totalCals}kcal. Assess muscle building potential.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -188,7 +189,7 @@ export const generatePeriodReview = async (
 
 export const generateAudioBriefing = async (profile: UserProfile, meals: Meal[], workouts: WorkoutSession[]) => {
   const totalCal = meals.reduce((s, m) => s + (Number(m.calories) || 0), 0);
-  const prompt = `Briefing for ${profile.displayName}. Fuel: ${totalCal} kcal. Goal: ${profile.goalType}. Keep it short and motivating.`;
+  const prompt = `Briefing for ${profile.displayName}. Fuel: ${totalCal} kcal today. Goal: Bulking. Provide a 30-second aggressive tactical briefing on their anabolic progress.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
@@ -209,7 +210,7 @@ export const generateAudioBriefing = async (profile: UserProfile, meals: Meal[],
 export const calculateMacroTargets = async (profile: Partial<UserProfile>) => {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Calculate calorie and protein goals for Weight: ${profile.weight}kg, Goal: ${profile.goalType}.`,
+    contents: `Calculate calorie and protein goals for Weight: ${profile.weight}kg, Goal: BULK (Maximum Muscle Gain). Provide aggressive but safe numbers.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -236,7 +237,7 @@ export const calculateMacroTargets = async (profile: Partial<UserProfile>) => {
 export const estimateMealMacros = async (mealDescription: string) => {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Macros for: "${mealDescription}".`,
+    contents: `Analyze macros for a bulking athlete: "${mealDescription}". Focus on identifying calorie-dense ingredients.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -247,8 +248,9 @@ export const estimateMealMacros = async (mealDescription: string) => {
           protein: { type: Type.NUMBER },
           carbs: { type: Type.NUMBER },
           fats: { type: Type.NUMBER },
+          bulkingNote: { type: Type.STRING, description: "How this specifically helps with mass gain." }
         },
-        required: ["name", "calories", "protein", "carbs", "fats"]
+        required: ["name", "calories", "protein", "carbs", "fats", "bulkingNote"]
       },
     },
   });
@@ -264,10 +266,47 @@ export const estimateMealMacros = async (mealDescription: string) => {
   };
 };
 
+export const estimateMacrosFromImage = async (base64Data: string, mimeType: string) => {
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: {
+      parts: [
+        { inlineData: { data: base64Data, mimeType } },
+        { text: "Identify the food in this image and estimate the calories, protein, carbs, and fats for someone on a serious bulking phase. Return JSON. Be generous with portion estimates for mass gain." }
+      ]
+    },
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          calories: { type: Type.NUMBER },
+          protein: { type: Type.NUMBER },
+          carbs: { type: Type.NUMBER },
+          fats: { type: Type.NUMBER },
+          bulkingNote: { type: Type.STRING, description: "A tactical note on why this is good for bulking." }
+        },
+        required: ["name", "calories", "protein", "carbs", "fats", "bulkingNote"]
+      },
+    },
+  });
+
+  if (!response.text) throw new Error("Neural visual session blank.");
+  const data = safeJsonParse(response.text);
+  return {
+    ...data,
+    calories: Number(data.calories) || 0,
+    protein: Number(data.protein) || 0,
+    carbs: Number(data.carbs) || 0,
+    fats: Number(data.fats) || 0
+  };
+};
+
 export const suggestSchedule = async (currentSchedule: string, goals: string) => {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Schedule for: "${goals}". Current: "${currentSchedule}".`,
+    contents: `Optimize this schedule for someone bulking: "${goals}". Current: "${currentSchedule}". Focus on meal timing and sleep for maximum anabolism.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {

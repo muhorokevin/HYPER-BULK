@@ -14,6 +14,7 @@ export interface Meal {
   slot?: MealSlot;
   isFavorite?: boolean;
   isPlanned?: boolean;
+  bulkingNote?: string;
 }
 
 export interface ActivityRecord {
