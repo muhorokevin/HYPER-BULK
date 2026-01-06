@@ -1,0 +1,196 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>HyperBulk AI | Tactical Command</title>
+    
+    <!-- PWA / APK Meta Tags -->
+    <meta name="theme-color" content="#020203">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        :root {
+            --lime-glow: rgba(163, 230, 53, 0.4);
+            --panel-bg: rgba(9, 9, 11, 0.9);
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: #020203;
+            color: #fafafa;
+            overflow-x: hidden;
+            user-select: none;
+            /* Prevent gray highlight on mobile tap */
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Tactical HUD Background Effect */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                radial-gradient(circle at 2px 2px, rgba(163, 230, 53, 0.04) 1px, transparent 0);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.7);
+        }
+
+        .hud-border {
+            position: relative;
+        }
+
+        .hud-border::before, .hud-border::after {
+            content: "";
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-color: rgba(163, 230, 53, 0.6);
+            border-style: solid;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-border::before { top: -2px; left: -2px; border-width: 2px 0 0 2px; }
+        .hud-border::after { bottom: -2px; right: -2px; border-width: 0 2px 2px 0; }
+
+        .scanline {
+            width: 100%;
+            height: 100px;
+            z-index: 50;
+            background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(163, 230, 53, 0.03) 50%, rgba(0,0,0,0) 100%);
+            opacity: 0.15;
+            position: absolute;
+            bottom: 100%;
+            pointer-events: none;
+            animation: scanline 12s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { bottom: 100%; }
+            100% { bottom: -100px; }
+        }
+
+        .glow-text {
+            text-shadow: 0 0 15px var(--lime-glow);
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #020203; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a3e635; }
+
+        .transition-tactical {
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Subtle CRT flicker */
+        @keyframes flicker {
+          0% { opacity: 0.98; }
+          5% { opacity: 0.95; }
+          10% { opacity: 0.99; }
+          15% { opacity: 0.93; }
+          25% { opacity: 0.97; }
+          30% { opacity: 0.94; }
+          100% { opacity: 1; }
+        }
+
+        .crt-flicker {
+          animation: flicker 0.15s infinite;
+        }
+
+        /* Boot overlay */
+        #boot-overlay {
+          position: fixed;
+          inset: 0;
+          background: #020203;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+          gap: 1rem;
+          transition: opacity 1s ease-out, visibility 1s;
+        }
+        
+        #boot-overlay.hidden {
+          opacity: 0;
+          visibility: hidden;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0",
+    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="boot-overlay">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-lime-400 flex items-center justify-center rounded animate-pulse">
+          <i class="fas fa-bolt text-black text-2xl"></i>
+        </div>
+        <div class="flex flex-col">
+          <h1 class="text-xl font-black text-white tracking-[0.3em] uppercase italic">HyperBulk OS</h1>
+          <p class="text-[10px] font-black text-zinc-600 tracking-[0.5em] uppercase">Initializing Tactical Engine...</p>
+        </div>
+      </div>
+      <div class="w-48 h-1 bg-zinc-900 rounded-full mt-4 overflow-hidden p-[1px]">
+        <div id="boot-progress" class="h-full bg-lime-400 transition-all duration-300 shadow-[0_0_15px_#a3e635]" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <div id="root"></div>
+
+    <script>
+      const overlay = document.getElementById('boot-overlay');
+      const bar = document.getElementById('boot-progress');
+      let prog = 0;
+      const interval = setInterval(() => {
+        prog += Math.random() * 30;
+        if (prog >= 100) {
+          prog = 100;
+          clearInterval(interval);
+          setTimeout(() => {
+            overlay.classList.add('hidden');
+          }, 500);
+        }
+        bar.style.width = prog + '%';
+      }, 150);
+
+      // Register Service Worker for PWA/APK Installation
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(err => {
+            console.log('SW registration failed: ', err);
+          });
+        });
+      }
+    </script>
+</body>
+</html>

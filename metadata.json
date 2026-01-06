@@ -1,0 +1,8 @@
+{
+  "name": "HyperBulk AI - Personal Bulking Companion",
+  "description": "A comprehensive fitness ecosystem for bulking enthusiasts. Features AI-powered meal calorie estimation, detailed workout tracking, and daily schedule planning to optimize muscle growth and recovery.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
