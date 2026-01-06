@@ -82,31 +82,34 @@ const NeuralLink: React.FC<NeuralLinkProps> = ({ isOpen, onClose, profile, meals
     
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("TACTICAL_COMMS_ERROR: Neural interface hardware not detected (MediaDevices API missing).");
-      }
-
-      // Check if any audio input devices exist before requesting
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const hasMic = devices.some(device => device.kind === 'audioinput');
-      
-      if (!hasMic) {
-        throw new Error("HARDWARE_FAILURE: No active microphone detected on this terminal.");
+        throw new Error("SECURE_CONTEXT_REQUIRED: Neural interface hardware requires a secure connection (HTTPS or localhost).");
       }
 
       let stream: MediaStream;
       try {
-        // Primary attempt: Optimized for voice
+        // Attempt 1: Standard tactical constraints
         stream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
+            echoCancellation: { ideal: true },
+            noiseSuppression: { ideal: true },
+            autoGainControl: { ideal: true }
           } 
         });
       } catch (innerErr) {
-        console.warn("Primary mic access failed, attempting basic fallback...", innerErr);
-        // Secondary attempt: Fallback to basic audio
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.warn("Primary mic access failed, attempting emergency fallback...", innerErr);
+        // Attempt 2: Minimalist fallback for older/restricted hardware
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (finalErr: any) {
+          // Explicitly catch the failure to provide diagnostic info
+          if (finalErr.name === 'NotFoundError' || finalErr.name === 'DevicesNotFoundError') {
+            throw new Error("HARDWARE_NOT_FOUND: No audio input device detected. Verify microphone is active.");
+          } else if (finalErr.name === 'NotAllowedError' || finalErr.name === 'PermissionDeniedError') {
+            throw new Error("ACCESS_DENIED: Neural link requires microphone permissions. Check browser settings.");
+          } else {
+            throw finalErr;
+          }
+        }
       }
       
       streamRef.current = stream;
@@ -206,7 +209,7 @@ const NeuralLink: React.FC<NeuralLinkProps> = ({ isOpen, onClose, profile, meals
           onerror: (e) => {
             console.error("Neural Link Comms Error:", e);
             setStatus('ERROR');
-            setErrorMessage("NEURAL_SESSION_INTERRUPTED: Connection to tactical node severed.");
+            setErrorMessage("SESSION_LOST: Signal lost to tactical satellite. Reconnecting...");
           },
           onclose: () => {
             setStatus('IDLE');
@@ -216,18 +219,18 @@ const NeuralLink: React.FC<NeuralLinkProps> = ({ isOpen, onClose, profile, meals
 
       sessionRef.current = await sessionPromise;
     } catch (err: any) {
-      console.error("Neural Link Hardware Failure:", err);
+      console.error("Neural Link Failure:", err);
       setStatus('ERROR');
       
-      // Handle standard MediaDevices errors with user-friendly tactical messaging
-      if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError' || err.message?.includes('device not found')) {
-        setErrorMessage("HARDWARE_FAILURE: No microphone found. Ensure headset or internal mic is connected.");
-      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setErrorMessage("SECURITY_BREACH: Microphone access denied. Authorize sensors in browser settings.");
+      // Map technical errors to user-friendly "Tactical" messages
+      if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError' || err.message?.includes('HARDWARE_NOT_FOUND')) {
+        setErrorMessage("SENSOR_FAILURE: No microphone detected. Connect hardware and retry synchronization.");
+      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.message?.includes('ACCESS_DENIED')) {
+        setErrorMessage("PROTOCOL_VIOLATION: Mic access blocked. Authorize sensors in browser to proceed.");
       } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        setErrorMessage("HARDWARE_CONFLICT: Microphone is locked by another process or OS settings.");
+        setErrorMessage("HARDWARE_LOCKED: Sensor currently in use by another directive or application.");
       } else {
-        setErrorMessage(`COMMS_FAILURE: ${err.message || 'Unknown signal interference'}`);
+        setErrorMessage(`COMMS_ERROR: ${err.message || 'Unknown signal interference'}`);
       }
     }
   };
@@ -283,7 +286,7 @@ const NeuralLink: React.FC<NeuralLinkProps> = ({ isOpen, onClose, profile, meals
             </div>
           </div>
 
-          {/* Audio Visualizer (Mockup) */}
+          {/* Audio Visualizer */}
           <div className="h-24 flex items-center justify-center gap-1.5 px-4 bg-zinc-950/50 rounded-3xl border border-zinc-900">
             {Array.from({ length: 24 }).map((_, i) => (
               <div 
@@ -301,23 +304,19 @@ const NeuralLink: React.FC<NeuralLinkProps> = ({ isOpen, onClose, profile, meals
           <div className="space-y-3 bg-zinc-950/80 p-6 rounded-2xl border border-zinc-900 font-mono text-[11px] min-h-[140px]">
             <div className="flex items-center gap-2 text-zinc-600 mb-2">
               <Terminal size={12} />
-              <span className="uppercase tracking-[0.2em] font-black">Comms_Log.txt</span>
+              <span className="uppercase tracking-[0.2em] font-black">Tactical_Comms.log</span>
             </div>
             {status === 'ERROR' ? (
               <div className="space-y-2">
                 <p className="text-red-500 font-bold uppercase tracking-tight italic flex items-center gap-2">
-                  <AlertCircle size={14} /> Critical Link Error
+                  <AlertCircle size={14} /> Mission Abort Signal
                 </p>
                 <p className="text-zinc-500 font-black uppercase tracking-widest leading-relaxed">
-                  {errorMessage || "Neural synchronization failed. Verify hardware and retry mission start."}
+                  {errorMessage || "Synchronization failure. Ensure microphone functionality and grant system permissions."}
                 </p>
-                <div className="pt-2">
-                  <p className="text-[9px] text-zinc-700 uppercase font-black tracking-widest">Action Required:</p>
-                  <p className="text-[10px] text-zinc-500 italic">Verify microphone is connected, active, and browser permissions are granted.</p>
-                </div>
               </div>
             ) : transcription.length === 0 ? (
-              <p className="text-zinc-800 animate-pulse uppercase">Waiting for pilot input...</p>
+              <p className="text-zinc-800 animate-pulse uppercase">Scanning for pilot voice signal...</p>
             ) : (
               transcription.map((line, i) => (
                 <div key={i} className={`flex gap-3 ${line.startsWith('AI') ? 'text-lime-400' : 'text-zinc-400'}`}>
@@ -335,18 +334,18 @@ const NeuralLink: React.FC<NeuralLinkProps> = ({ isOpen, onClose, profile, meals
                   className={`flex-1 py-5 rounded-[1.5rem] font-black uppercase text-xs tracking-widest transition-tactical flex items-center justify-center gap-3 ${status === 'CONNECTED' ? 'bg-zinc-900 text-zinc-500 border border-zinc-800 hover:text-red-500' : status === 'ERROR' ? 'bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20' : 'bg-lime-400 text-black shadow-2xl shadow-lime-400/20'}`}
                 >
                   {status === 'CONNECTING' ? <Loader2 size={18} className="animate-spin" /> : status === 'CONNECTED' ? <MicOff size={18} /> : status === 'ERROR' ? <RefreshCcw size={18} /> : <Mic size={18} />}
-                  {status === 'CONNECTED' ? 'Terminate Link' : status === 'ERROR' ? 'Retry Synchronization' : 'Initialize Comms'}
+                  {status === 'CONNECTED' ? 'Cut Signal' : status === 'ERROR' ? 'Retry Link-up' : 'Engage Neural Link'}
                 </button>
              </div>
              
              <div className="flex items-center justify-center gap-6 pt-4 text-zinc-700">
                 <div className="flex items-center gap-2">
                    <Zap size={12} />
-                   <span className="text-[8px] font-black uppercase tracking-widest">Real-time Form Analysis</span>
+                   <span className="text-[8px] font-black uppercase tracking-widest">Active Monitoring</span>
                 </div>
                 <div className="flex items-center gap-2">
                    <Volume2 size={12} />
-                   <span className="text-[8px] font-black uppercase tracking-widest">Active Coaching</span>
+                   <span className="text-[8px] font-black uppercase tracking-widest">Neural Feedback</span>
                 </div>
              </div>
           </div>
