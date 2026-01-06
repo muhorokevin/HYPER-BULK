@@ -2,18 +2,25 @@
 {
   "name": "HyperBulk AI",
   "short_name": "HyperBulk",
-  "description": "Tactical AI-powered fitness command center for bulking and performance tracking.",
+  "description": "Tactical AI-powered fitness command center for performance tracking.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#020203",
   "theme_color": "#a3e635",
   "orientation": "portrait",
+  "display_override": ["standalone", "fullscreen"],
   "icons": [
+    {
+      "src": "https://cdn-icons-png.shorthand.com/512/5732/5732152.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "https://cdn-icons-png.flaticon.com/512/5732/5732152.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     },
     {
       "src": "https://cdn-icons-png.flaticon.com/512/5732/5732152.png",

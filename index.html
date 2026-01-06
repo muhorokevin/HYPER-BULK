@@ -9,10 +9,12 @@
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3e635' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 2L3 14h9l-1 8 10-12h-9l1-8z'/%3E%3C/svg%3E">
     
-    <!-- PWA / APK Meta Tags -->
+    <!-- PWA / App Meta Tags -->
     <meta name="theme-color" content="#020203">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="HyperBulk">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/5732/5732152.png">
     <link rel="manifest" href="manifest.json">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -143,7 +145,6 @@
 
     <div id="root"></div>
 
-    <!-- Main Entry Point -->
     <script src="index.tsx" type="module"></script>
 
     <script>
@@ -163,17 +164,17 @@
         if (bar) bar.style.width = prog + '%';
       }, 150);
 
-      // Failsafe: Force hide overlay after 3.5 seconds
       setTimeout(() => {
         if (overlay && !overlay.classList.contains('hidden')) {
            overlay.classList.add('hidden');
-           console.warn('Boot overlay failsafe triggered.');
         }
       }, 3500);
 
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(err => {
+          navigator.serviceWorker.register('./sw.js').then(reg => {
+            console.log('Operational SW registered');
+          }).catch(err => {
             console.log('SW registration failed: ', err);
           });
         });
