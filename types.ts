@@ -40,6 +40,14 @@ export interface WeightEntry {
   timestamp: number;
 }
 
+export interface WorkoutSet {
+  id: string;
+  reps: string;
+  weight: string;
+  note: string;
+  completed: boolean;
+}
+
 export interface WorkoutExercise {
   id: string;
   name: string;
@@ -48,6 +56,7 @@ export interface WorkoutExercise {
   weight: string;
   completed: boolean;
   restTime?: number; // Duration in seconds
+  setDetails?: WorkoutSet[];
 }
 
 export interface WorkoutSession {

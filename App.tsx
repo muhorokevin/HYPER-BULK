@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -9,11 +9,12 @@ import {
   Settings, 
   Menu, 
   Zap,
-  Trophy,
   ShieldCheck,
   History,
   X,
-  Navigation
+  Navigation,
+  Flame,
+  Radio
 } from 'lucide-react';
 import Dashboard from './pages/Dashboard.tsx';
 import MealsPage from './pages/MealsPage.tsx';
@@ -22,10 +23,12 @@ import SchedulePage from './pages/SchedulePage.tsx';
 import SettingsPage from './pages/SettingsPage.tsx';
 import ReviewPage from './pages/ReviewPage.tsx';
 import ActivityPage from './pages/ActivityPage.tsx';
+import NeuralLink from './components/NeuralLink.tsx';
 import { Meal, WorkoutSession, ScheduleItem, UserProfile, WaterLog, WeightEntry, ActivityRecord } from './types.ts';
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isNeuralLinkOpen, setIsNeuralLinkOpen] = useState(false);
   
   const [meals, setMeals] = useState<Meal[]>(() => {
     const saved = localStorage.getItem('hb_meals');
@@ -85,18 +88,28 @@ const App: React.FC = () => {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const dailyCalories = meals.filter(m => {
+  const dailyCalories = useMemo(() => meals.filter(m => {
     const d = new Date(m.timestamp).toISOString().split('T')[0];
     return d === todayStr && !m.isPlanned;
-  }).reduce((sum, m) => sum + m.calories, 0);
+  }).reduce((sum, m) => sum + (Number(m.calories) || 0), 0), [meals, todayStr]);
 
-  const progressPercent = profile.dailyCalorieGoal > 0 
-    ? Math.min((dailyCalories / profile.dailyCalorieGoal) * 100, 100)
-    : 0;
+  const streak = useMemo(() => {
+    const dates = new Set(meals.filter(m => !m.isPlanned).map(m => new Date(m.timestamp).toISOString().split('T')[0]));
+    return dates.size;
+  }, [meals]);
 
   return (
     <HashRouter>
       <div className="flex h-screen bg-[#020203] overflow-hidden text-zinc-100">
+        <NeuralLink 
+          isOpen={isNeuralLinkOpen} 
+          onClose={() => setIsNeuralLinkOpen(false)} 
+          profile={profile} 
+          meals={meals} 
+          workouts={workouts}
+          water={water}
+        />
+
         {isSidebarOpen && (
           <div 
             className="fixed inset-0 bg-black/90 z-[60] lg:hidden backdrop-blur-xl animate-in fade-in duration-300" 
@@ -119,40 +132,44 @@ const App: React.FC = () => {
                   <Zap className="text-black w-6 h-6 fill-black" />
                 </div>
                 <div>
-                   <h1 className="text-2xl font-black text-white tracking-widest italic leading-none">
+                   <h1 className="text-2xl font-black text-white tracking-widest italic leading-none uppercase">
                      HYPER<span className="text-lime-400">BULK</span>
                    </h1>
-                   <p className="text-[8px] font-black text-zinc-600 tracking-[0.4em] mt-1 uppercase">Tactical AI Engine</p>
+                   <p className="text-[8px] font-black text-zinc-600 tracking-[0.4em] mt-1 uppercase">Mission Ready v1.0</p>
                 </div>
               </div>
             </div>
 
-            <nav className="flex-1 px-6 space-y-3">
-              <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Command Center" onClick={() => setIsSidebarOpen(false)} />
-              <NavItem to="/meals" icon={<Utensils size={20} />} label="Fuel Log" onClick={() => setIsSidebarOpen(false)} />
-              <NavItem to="/activity" icon={<Navigation size={20} />} label="Field Ops" onClick={() => setIsSidebarOpen(false)} />
-              <NavItem to="/workouts" icon={<Dumbbell size={20} />} label="Battle Plan" onClick={() => setIsSidebarOpen(false)} />
-              <NavItem to="/schedule" icon={<CalendarClock size={20} />} label="Chronos" onClick={() => setIsSidebarOpen(false)} />
-              <NavItem to="/review" icon={<History size={20} />} label="Tactical Review" onClick={() => setIsSidebarOpen(false)} />
-              <NavItem to="/settings" icon={<Settings size={20} />} label="Core Config" onClick={() => setIsSidebarOpen(false)} />
+            <nav className="flex-1 px-6 space-y-2">
+              <NavItem to="/" icon={<LayoutDashboard size={18} />} label="Command Center" onClick={() => setIsSidebarOpen(false)} />
+              <NavItem to="/meals" icon={<Utensils size={18} />} label="Fuel Log" onClick={() => setIsSidebarOpen(false)} />
+              <NavItem to="/activity" icon={<Navigation size={18} />} label="Field Ops" onClick={() => setIsSidebarOpen(false)} />
+              <NavItem to="/workouts" icon={<Dumbbell size={18} />} label="Battle Plan" onClick={() => setIsSidebarOpen(false)} />
+              <NavItem to="/schedule" icon={<CalendarClock size={18} />} label="Chronos" onClick={() => setIsSidebarOpen(false)} />
+              <NavItem to="/review" icon={<History size={18} />} label="Tactical Review" onClick={() => setIsSidebarOpen(false)} />
+              <NavItem to="/settings" icon={<Settings size={18} />} label="Core Config" onClick={() => setIsSidebarOpen(false)} />
             </nav>
 
-            <div className="p-8">
-              <div className="glass-panel p-6 rounded-3xl border-zinc-800/50 relative overflow-hidden group">
-                <div className="absolute inset-0 bg-lime-400/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="flex items-center justify-between mb-6">
-                  <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em]">Energy Node</span>
-                  <Trophy size={14} className="text-lime-400" />
+            <div className="p-8 space-y-4">
+              <button 
+                onClick={() => setIsNeuralLinkOpen(true)}
+                className="w-full flex items-center justify-between p-6 bg-lime-400/5 border border-lime-400/20 rounded-3xl group hover:bg-lime-400/10 transition-tactical"
+              >
+                <div className="flex items-center gap-4">
+                   <Radio size={20} className="text-lime-400 animate-pulse" />
+                   <span className="text-[10px] font-black text-white uppercase tracking-widest">Neural Link</span>
+                </div>
+                <div className="w-6 h-6 bg-zinc-900 rounded-lg flex items-center justify-center text-lime-400 text-[10px] font-black group-hover:bg-lime-400 group-hover:text-black transition-tactical">AI</div>
+              </button>
+
+              <div className="glass-panel p-6 rounded-3xl border border-zinc-900 relative overflow-hidden">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Growth Streak</span>
+                  <Flame size={14} className="text-orange-500" />
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-black text-white tracking-tighter mono">{dailyCalories}</span>
-                  <span className="text-[10px] text-zinc-600 font-black uppercase mono">/ {profile.dailyCalorieGoal}</span>
-                </div>
-                <div className="mt-5 w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden p-[1px]">
-                  <div 
-                    className="bg-lime-400 h-full transition-all duration-1000 shadow-[0_0_15px_rgba(163,230,53,0.4)] rounded-full" 
-                    style={{ width: `${progressPercent}%` }}
-                  />
+                  <span className="text-3xl font-black text-white mono">{streak}</span>
+                  <span className="text-[10px] text-zinc-600 font-black uppercase">ACTIVE_DAYS</span>
                 </div>
               </div>
             </div>
@@ -160,40 +177,39 @@ const App: React.FC = () => {
         </aside>
 
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-          <header className="h-24 flex items-center justify-between px-10 bg-zinc-950/50 backdrop-blur-xl border-b border-zinc-900 sticky top-0 z-50">
+          <header className="h-20 flex items-center justify-between px-10 bg-zinc-950/50 backdrop-blur-xl border-b border-zinc-900 sticky top-0 z-50">
             <button 
-              className="lg:hidden p-3 text-zinc-400 hover:text-white bg-zinc-900 rounded-xl"
+              className="lg:hidden p-2.5 text-zinc-400 hover:text-white bg-zinc-900 rounded-xl"
               onClick={toggleSidebar}
             >
-              <Menu size={24} />
+              <Menu size={20} />
             </button>
             
             <div className="flex-1 flex justify-end items-center gap-8">
-              <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-zinc-900/40 border border-zinc-800 rounded-full">
+              <button 
+                onClick={() => setIsNeuralLinkOpen(true)}
+                className="hidden md:flex items-center gap-3 px-4 py-2 bg-zinc-900/40 border border-zinc-800 rounded-full hover:border-lime-400/50 transition-tactical group"
+              >
                 <div className="w-1.5 h-1.5 rounded-full bg-lime-400 animate-pulse"></div>
-                <span className="text-[10px] font-black text-zinc-500 tracking-[0.2em] uppercase">Security Protocol: Local</span>
-              </div>
+                <span className="text-[10px] font-black text-zinc-500 tracking-[0.2em] uppercase group-hover:text-lime-400">NEURAL_LINK_READY</span>
+              </button>
 
-              <div className="flex items-center gap-6 group cursor-default">
+              <div className="flex items-center gap-5 group cursor-default">
                 <div className="text-right hidden sm:block">
-                  <p className="text-[10px] font-black text-zinc-600 tracking-[0.3em] uppercase mb-1">Status: Online</p>
-                  <p className="text-sm font-black text-white group-hover:text-lime-400 transition-tactical uppercase tracking-tight">{profile.displayName}</p>
+                  <p className="text-[9px] font-black text-zinc-600 tracking-[0.3em] uppercase mb-0.5">PILOT_ID</p>
+                  <p className="text-sm font-black text-white group-hover:text-lime-400 transition-colors uppercase tracking-tight">{profile.displayName}</p>
                 </div>
-                <div className="relative">
-                  <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-lime-400 font-black relative overflow-hidden group-hover:border-lime-400/50 transition-tactical shadow-2xl">
-                    <span className="relative z-10 text-xs mono">P01</span>
-                    <div className="absolute inset-0 bg-lime-400/10 scale-0 group-hover:scale-100 transition-transform duration-500 rounded-full"></div>
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-lime-400 border-4 border-zinc-950 rounded-full"></div>
+                <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-lime-400 font-black shadow-lg">
+                  <ShieldCheck size={20} />
                 </div>
               </div>
             </div>
           </header>
 
           <div className="flex-1 overflow-y-auto p-8 lg:p-12 scroll-smooth">
-            <div className="max-w-7xl mx-auto h-full">
+            <div className="max-w-7xl mx-auto">
               <Routes>
-                <Route path="/" element={<Dashboard meals={meals} profile={profile} schedule={schedule} workouts={workouts} water={water} setWater={setWater} weightHistory={weightHistory} setWeightHistory={setWeightHistory} />} />
+                <Route path="/" element={<Dashboard meals={meals} profile={profile} schedule={schedule} workouts={workouts} water={water} setWater={setWater} weightHistory={weightHistory} setWeightHistory={setWeightHistory} onOpenNeuralLink={() => setIsNeuralLinkOpen(true)} />} />
                 <Route path="/meals" element={<MealsPage meals={meals} setMeals={setMeals} profile={profile} setProfile={setProfile} />} />
                 <Route path="/activity" element={<ActivityPage activities={activities} setActivities={setActivities} profile={profile} />} />
                 <Route path="/workouts" element={<WorkoutPage workouts={workouts} setWorkouts={setWorkouts} profile={profile} setProfile={setProfile} />} />
@@ -218,17 +234,17 @@ const NavItem: React.FC<{ to: string, icon: React.ReactNode, label: string, onCl
       to={to}
       onClick={onClick}
       className={`
-        flex items-center gap-5 px-6 py-4 rounded-2xl transition-tactical group relative
+        flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all group relative
         ${isActive 
-          ? 'bg-zinc-900 text-white shadow-2xl' 
-          : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/30'}
+          ? 'bg-zinc-900 text-white shadow-xl border border-zinc-800' 
+          : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/40'}
       `}
     >
-      {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-lime-400 rounded-r-full shadow-[0_0_15px_#a3e635]"></div>}
-      <span className={`${isActive ? 'text-lime-400 shadow-[0_0_10px_rgba(163,230,53,0.5)]' : 'group-hover:text-white transition-tactical'}`}>
+      {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-lime-400 rounded-r-full shadow-[0_0_10px_#a3e635]"></div>}
+      <span className={`${isActive ? 'text-lime-400' : 'group-hover:text-white transition-colors'}`}>
         {icon}
       </span>
-      <span className={`text-[11px] tracking-[0.2em] uppercase font-black ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}>
+      <span className={`text-[10px] tracking-[0.2em] uppercase font-black ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}>
         {label}
       </span>
     </Link>

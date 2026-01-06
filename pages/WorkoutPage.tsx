@@ -9,23 +9,24 @@ import {
   Target, 
   Zap, 
   X, 
-  Sparkles, 
   Loader2, 
   BrainCircuit, 
   Play, 
   RotateCcw,
-  Activity,
-  ShieldAlert,
   Home,
   MapPin,
-  ChevronRight,
   Info,
   ExternalLink,
   Radar,
   Check,
-  Settings
+  StickyNote,
+  Scale,
+  Hash,
+  ChevronDown,
+  ChevronUp,
+  ShieldCheck
 } from 'lucide-react';
-import { WorkoutSession, WorkoutExercise, EnvironmentType, UserProfile } from '../types';
+import { WorkoutSession, WorkoutExercise, EnvironmentType, UserProfile, WorkoutSet } from '../types';
 import { generatePersonalizedWorkout, findLocalGyms } from '../services/geminiService';
 
 interface WorkoutPageProps {
@@ -122,6 +123,7 @@ const WorkoutPage: React.FC<WorkoutPageProps> = ({ workouts, setWorkouts, profil
   const [tempPrompt, setTempPrompt] = useState('');
   const [gymSuggestions, setGymSuggestions] = useState<{text: string, sources: any[]} | null>(null);
   const [isFindingGyms, setIsFindingGyms] = useState(false);
+  const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
 
   const startOnboarding = () => setShowOnboarding(true);
 
@@ -135,27 +137,95 @@ const WorkoutPage: React.FC<WorkoutPageProps> = ({ workouts, setWorkouts, profil
         date: `${environment.toUpperCase()} DEPLOYMENT`,
         timestamp: Date.now(),
         environment: environment,
-        exercises: result.exercises.map((ex: any) => ({
-          ...ex,
-          id: Math.random().toString(36).substr(2, 9),
-          completed: false,
-          restTime: 60
-        }))
+        exercises: result.exercises.map((ex: any) => {
+          const setsCount = Number(ex.sets) || 3;
+          const initialSets: WorkoutSet[] = Array.from({ length: setsCount }).map((_, i) => ({
+            id: Math.random().toString(36).substr(2, 9),
+            reps: ex.reps,
+            weight: ex.weight,
+            note: '',
+            completed: false
+          }));
+
+          return {
+            ...ex,
+            id: Math.random().toString(36).substr(2, 9),
+            completed: false,
+            restTime: 60,
+            setDetails: initialSets
+          };
+        })
       };
       setWorkouts([newSession, ...workouts]);
       setShowOnboarding(false);
       setTempPrompt('');
     } catch (error) {
       console.error(error);
-      alert("Neural mission generation failed. Please check your connection or mission parameters.");
+      alert("Neural mission generation failed.");
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const updateSet = (sessionId: string, exerciseId: string, setId: string, updates: Partial<WorkoutSet>) => {
+    setWorkouts(prev => prev.map(s => {
+      if (s.id !== sessionId) return s;
+      return {
+        ...s,
+        exercises: s.exercises.map(e => {
+          if (e.id !== exerciseId) return e;
+          const newSets = (e.setDetails || []).map(set => set.id === setId ? { ...set, ...updates } : set);
+          const allCompleted = newSets.length > 0 && newSets.every(set => set.completed);
+          return { ...e, setDetails: newSets, completed: allCompleted };
+        })
+      };
+    }));
+  };
+
+  const addSet = (sessionId: string, exerciseId: string) => {
+    setWorkouts(prev => prev.map(s => {
+      if (s.id !== sessionId) return s;
+      return {
+        ...s,
+        exercises: s.exercises.map(e => {
+          if (e.id !== exerciseId) return e;
+          const lastSet = e.setDetails ? e.setDetails[e.setDetails.length - 1] : null;
+          const newSet: WorkoutSet = {
+            id: Math.random().toString(36).substr(2, 9),
+            reps: lastSet?.reps || e.reps,
+            weight: lastSet?.weight || e.weight,
+            note: '',
+            completed: false
+          };
+          return { 
+            ...e, 
+            setDetails: [...(e.setDetails || []), newSet], 
+            sets: (e.setDetails?.length || 0) + 1,
+            completed: false 
+          };
+        })
+      };
+    }));
+  };
+
+  const removeSet = (sessionId: string, exerciseId: string, setId: string) => {
+    setWorkouts(prev => prev.map(s => {
+      if (s.id !== sessionId) return s;
+      return {
+        ...s,
+        exercises: s.exercises.map(e => {
+          if (e.id !== exerciseId) return e;
+          const newSets = (e.setDetails || []).filter(st => st.id !== setId);
+          const allCompleted = newSets.length > 0 && newSets.every(set => set.completed);
+          return { ...e, setDetails: newSets, sets: newSets.length, completed: allCompleted };
+        })
+      };
+    }));
+  };
+
   const getGymRecon = () => {
     if (!navigator.geolocation) {
-      alert("Geolocation required for gym reconnaissance.");
+      alert("Geolocation required.");
       return;
     }
     setIsFindingGyms(true);
@@ -165,14 +235,10 @@ const WorkoutPage: React.FC<WorkoutPageProps> = ({ workouts, setWorkouts, profil
         setGymSuggestions(data);
       } catch (err) {
         console.error(err);
-        alert("Satellite link failed. Could not locate gyms.");
       } finally {
         setIsFindingGyms(false);
       }
-    }, () => {
-      alert("Position request denied by user or system.");
-      setIsFindingGyms(false);
-    });
+    }, () => setIsFindingGyms(false));
   };
 
   const toggleEquipment = (item: string) => {
@@ -186,8 +252,20 @@ const WorkoutPage: React.FC<WorkoutPageProps> = ({ workouts, setWorkouts, profil
   };
 
   const removeSession = (sessionId: string) => setWorkouts(workouts.filter(s => s.id !== sessionId));
+  
   const toggleComplete = (sessionId: string, exerciseId: string) => {
-    setWorkouts(prev => prev.map(s => s.id === sessionId ? { ...s, exercises: s.exercises.map(e => e.id === exerciseId ? { ...e, completed: !e.completed } : e) } : s));
+    setWorkouts(prev => prev.map(s => {
+      if (s.id !== sessionId) return s;
+      return {
+        ...s,
+        exercises: s.exercises.map(e => {
+          if (e.id !== exerciseId) return e;
+          const newStatus = !e.completed;
+          const newSets = (e.setDetails || []).map(set => ({ ...set, completed: newStatus }));
+          return { ...e, completed: newStatus, setDetails: newSets };
+        })
+      };
+    }));
   };
 
   return (
@@ -270,19 +348,6 @@ const WorkoutPage: React.FC<WorkoutPageProps> = ({ workouts, setWorkouts, profil
                        <span className="text-[9px] font-black uppercase tracking-widest">Home Bunker</span>
                     </button>
                  </div>
-
-                 {environment === 'gym' && (
-                    <div className="space-y-4">
-                        <label className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Attending Gym Name / Location</label>
-                        <input 
-                            type="text" 
-                            value={profile.preferredGym || ''} 
-                            onChange={(e) => setProfile(p => ({...p, preferredGym: e.target.value}))} 
-                            placeholder="e.g. Gold's Gym Downtown" 
-                            className="w-full bg-zinc-900 border-2 border-zinc-800 rounded-xl px-6 py-4 text-white font-bold focus:outline-none focus:border-lime-400/50 uppercase text-sm"
-                        />
-                    </div>
-                 )}
 
                  <div className="space-y-4">
                     <label className="text-[9px] font-black text-zinc-600 uppercase tracking-widest flex items-center justify-between">
@@ -380,35 +445,127 @@ const WorkoutPage: React.FC<WorkoutPageProps> = ({ workouts, setWorkouts, profil
                 
                 <div className="divide-y divide-zinc-900/50">
                   {session.exercises.map((ex) => (
-                    <div key={ex.id} className={`p-8 flex flex-col md:flex-row md:items-center gap-8 group/row transition-tactical ${ex.completed ? 'bg-zinc-950/40' : 'hover:bg-lime-400/[0.01]'}`}>
-                      <button onClick={() => toggleComplete(session.id, ex.id)} className={`transition-tactical transform active:scale-90 shrink-0 ${ex.completed ? 'text-lime-400 drop-shadow-[0_0_8px_#a3e635]' : 'text-zinc-800 hover:text-zinc-600'}`}>
-                        {ex.completed ? <CheckCircle2 size={40} /> : <Circle size={40} />}
-                      </button>
+                    <div key={ex.id} className={`flex flex-col transition-all duration-500 ${ex.completed ? 'opacity-40 grayscale-[0.5]' : 'hover:bg-lime-400/[0.01]'}`}>
+                      <div className="p-8 flex flex-col md:flex-row md:items-center gap-8 group/row">
+                        {/* THE MASTER TOGGLE */}
+                        <button 
+                          onClick={() => toggleComplete(session.id, ex.id)} 
+                          className={`transition-tactical transform active:scale-90 shrink-0 ${ex.completed ? 'text-lime-400 drop-shadow-[0_0_15px_#a3e635]' : 'text-zinc-800 hover:text-zinc-600'}`}
+                          title="Toggle Exercise Completion"
+                        >
+                          {ex.completed ? <CheckCircle2 size={40} /> : <Circle size={40} />}
+                        </button>
 
-                      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                        <div className="lg:col-span-4">
-                           <h4 className={`text-2xl font-black tracking-tight uppercase transition-tactical ${ex.completed ? 'line-through text-zinc-700 italic' : 'text-white'}`}>{ex.name}</h4>
-                           <div className="flex items-center gap-2 mt-1">
-                              <Info size={10} className="text-zinc-700" />
-                              <span className="text-[8px] font-black text-zinc-700 uppercase tracking-widest">Optimal Adaptation Method</span>
-                           </div>
-                        </div>
-                        <div className="lg:col-span-8 flex flex-wrap gap-8 items-center">
-                           <div className="flex items-center gap-3">
-                                <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest">Sets</span>
-                                <span className="text-sm font-black text-zinc-300 mono">{ex.sets}</span>
-                           </div>
-                           <div className="flex items-center gap-3">
-                                <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest">Reps</span>
-                                <span className="text-sm font-black text-zinc-300 mono">{ex.reps}</span>
-                           </div>
-                           <div className="flex items-center gap-3">
-                                <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest">Load</span>
-                                <span className="text-sm font-black text-zinc-300 mono">{ex.weight}</span>
-                           </div>
-                           {ex.restTime && !ex.completed && <RestTimer duration={ex.restTime} exerciseName={ex.name} />}
+                        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                          <div className="lg:col-span-4 cursor-pointer" onClick={() => setExpandedExercise(expandedExercise === ex.id ? null : ex.id)}>
+                             <div className="flex items-center gap-4">
+                               <h4 className={`text-2xl font-black tracking-tight uppercase transition-tactical ${ex.completed ? 'line-through text-zinc-700 italic' : 'text-white'}`}>
+                                 {ex.name}
+                               </h4>
+                               {ex.completed && (
+                                 <div className="flex items-center gap-1 px-2 py-0.5 bg-lime-400/10 rounded border border-lime-400/20">
+                                   <ShieldCheck size={10} className="text-lime-400" />
+                                   <span className="text-[8px] font-black text-lime-400 uppercase tracking-widest">MISSION_COMPLETE</span>
+                                 </div>
+                               )}
+                             </div>
+                             <div className="flex items-center gap-2 mt-1">
+                                <Info size={10} className="text-zinc-700" />
+                                <span className="text-[8px] font-black text-zinc-700 uppercase tracking-widest">Toggle telemetry details</span>
+                             </div>
+                          </div>
+                          <div className="lg:col-span-8 flex flex-wrap gap-8 items-center justify-between">
+                             <div className="flex gap-8">
+                               <div className="flex items-center gap-3">
+                                    <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest">Sets</span>
+                                    <span className={`text-sm font-black mono ${ex.completed ? 'text-zinc-700' : 'text-zinc-300'}`}>{ex.setDetails?.length || ex.sets}</span>
+                               </div>
+                               <div className="flex items-center gap-3">
+                                    <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest">Reps</span>
+                                    <span className={`text-sm font-black mono ${ex.completed ? 'text-zinc-700' : 'text-zinc-300'}`}>{ex.reps}</span>
+                               </div>
+                             </div>
+                             
+                             <div className="flex items-center gap-4">
+                               {ex.restTime && !ex.completed && <RestTimer duration={ex.restTime} exerciseName={ex.name} />}
+                               <button 
+                                onClick={() => setExpandedExercise(expandedExercise === ex.id ? null : ex.id)}
+                                className={`p-3 bg-zinc-900 border rounded-xl transition-tactical ${expandedExercise === ex.id ? 'border-lime-400 text-lime-400' : 'border-zinc-800 text-zinc-500 hover:text-white'}`}
+                               >
+                                {expandedExercise === ex.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                               </button>
+                             </div>
+                          </div>
                         </div>
                       </div>
+
+                      {/* Set Logging Detail Table */}
+                      {expandedExercise === ex.id && (
+                        <div className="px-8 pb-8 space-y-4 animate-in slide-in-from-top-4 duration-300">
+                           <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-zinc-900/30 rounded-t-xl text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em]">
+                              <div className="col-span-1 text-center">Set</div>
+                              <div className="col-span-2">Weight</div>
+                              <div className="col-span-2">Reps</div>
+                              <div className="col-span-5">Tactical Notes</div>
+                              <div className="col-span-2 text-right">Status</div>
+                           </div>
+                           <div className="space-y-2">
+                              {(ex.setDetails || []).map((set, idx) => (
+                                 <div key={set.id} className={`grid grid-cols-12 gap-4 items-center p-3 rounded-xl border transition-tactical ${set.completed ? 'bg-zinc-900/50 border-lime-400/20 opacity-60' : 'bg-zinc-950 border-zinc-900'}`}>
+                                    <div className="col-span-1 text-center font-black text-zinc-700 mono">{idx + 1}</div>
+                                    <div className="col-span-2 relative group">
+                                       <Scale size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-700" />
+                                       <input 
+                                          type="text" 
+                                          value={set.weight} 
+                                          onChange={(e) => updateSet(session.id, ex.id, set.id, { weight: e.target.value })}
+                                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-6 pr-2 py-1.5 text-xs font-black text-white focus:outline-none focus:border-lime-400/50 uppercase"
+                                       />
+                                    </div>
+                                    <div className="col-span-2 relative group">
+                                       <Hash size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-700" />
+                                       <input 
+                                          type="text" 
+                                          value={set.reps} 
+                                          onChange={(e) => updateSet(session.id, ex.id, set.id, { reps: e.target.value })}
+                                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-6 pr-2 py-1.5 text-xs font-black text-white focus:outline-none focus:border-lime-400/50 uppercase"
+                                       />
+                                    </div>
+                                    <div className="col-span-5 relative group">
+                                       <StickyNote size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-700" />
+                                       <input 
+                                          type="text" 
+                                          value={set.note} 
+                                          placeholder="Tactical performance note..."
+                                          onChange={(e) => updateSet(session.id, ex.id, set.id, { note: e.target.value })}
+                                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-6 pr-2 py-1.5 text-xs font-bold text-zinc-300 focus:outline-none focus:border-lime-400/50 uppercase placeholder:text-zinc-800"
+                                       />
+                                    </div>
+                                    <div className="col-span-2 flex items-center justify-end gap-3">
+                                       <button 
+                                          onClick={() => removeSet(session.id, ex.id, set.id)}
+                                          className="p-1.5 text-zinc-800 hover:text-red-500 transition-colors"
+                                       >
+                                          <Trash2 size={14} />
+                                       </button>
+                                       <button 
+                                          onClick={() => updateSet(session.id, ex.id, set.id, { completed: !set.completed })}
+                                          className={`p-1.5 rounded-lg border transition-tactical ${set.completed ? 'bg-lime-400 border-lime-400 text-black' : 'border-zinc-800 text-zinc-700 hover:border-zinc-600'}`}
+                                       >
+                                          <Check size={14} />
+                                       </button>
+                                    </div>
+                                 </div>
+                              ))}
+                              <button 
+                                 onClick={() => addSet(session.id, ex.id)}
+                                 className="w-full py-3 border-2 border-dashed border-zinc-900 rounded-xl text-[9px] font-black text-zinc-700 hover:text-lime-400 hover:border-lime-400/20 hover:bg-lime-400/5 transition-tactical uppercase tracking-widest flex items-center justify-center gap-2"
+                              >
+                                 <Plus size={14} /> Add Hypertrophy Set
+                              </button>
+                           </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -416,21 +573,6 @@ const WorkoutPage: React.FC<WorkoutPageProps> = ({ workouts, setWorkouts, profil
             </div>
           );
         })}
-      </div>
-
-      <div className="glass-panel p-10 rounded-[2.5rem] border-lime-400/10 flex items-start gap-8 relative overflow-hidden group hud-border">
-        <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:scale-110 transition-tactical duration-1000">
-           <ShieldAlert size={120} />
-        </div>
-        <div className="w-16 h-16 bg-lime-400 text-black rounded-2xl flex items-center justify-center shadow-2xl shadow-lime-400/20 shrink-0">
-          <Zap size={32} fill="currentColor" />
-        </div>
-        <div className="space-y-3">
-          <h4 className="text-xl font-black text-lime-400 tracking-tighter uppercase italic">Anabolic Tactical Note</h4>
-          <p className="text-zinc-500 font-bold leading-relaxed uppercase text-xs tracking-tight">
-            Deploying with localized gym equipment provides superior isolation capabilities. If deploying from home bunker, focus on explosive mechanical tension to simulate high load volume. <span className="text-white">Neutralize every rep.</span>
-          </p>
-        </div>
       </div>
     </div>
   );

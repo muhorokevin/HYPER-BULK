@@ -1,8 +1,6 @@
 
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Meal, UserProfile, WorkoutSession } from "../types.ts";
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const safeJsonParse = (text: string) => {
   try {
@@ -15,6 +13,7 @@ const safeJsonParse = (text: string) => {
 };
 
 export const suggestRoutes = async (lat: number, lng: number) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Find popular running routes and trails near coordinates ${lat}, ${lng}. Provide a list of names and approximate distances.`,
@@ -30,6 +29,7 @@ export const suggestRoutes = async (lat: number, lng: number) => {
 };
 
 export const findLocalGyms = async (lat: number, lng: number) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-3-pro-preview",
     contents: `Find high-rated gyms with fair pricing near the location ${lat}, ${lng}. List the top 3 with their specific names and why they are recommended.`,
@@ -53,6 +53,7 @@ export const findLocalGyms = async (lat: number, lng: number) => {
 };
 
 export const generatePersonalizedWorkout = async (profile: UserProfile, intent: string, environment: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const equipment = profile.availableEquipment?.join(', ') || 'None (Bodyweight only)';
   const prompt = `Generate a tactical workout plan for a pilot focused on bulking. 
     Pilot: ${profile.displayName}
@@ -99,6 +100,7 @@ export const generatePersonalizedWorkout = async (profile: UserProfile, intent: 
 };
 
 export const analyzeFuelVariance = async (planned: Meal[], actual: Meal[], profile: UserProfile) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const planSum = planned.reduce((acc, m) => ({ c: acc.c + (Number(m.calories) || 0), p: acc.p + (Number(m.protein) || 0) }), { c: 0, p: 0 });
   const actualSum = actual.reduce((acc, m) => ({ c: acc.c + (Number(m.calories) || 0), p: acc.p + (Number(m.protein) || 0) }), { c: 0, p: 0 });
 
@@ -129,6 +131,7 @@ export const analyzeFuelVariance = async (planned: Meal[], actual: Meal[], profi
 };
 
 export const estimateActivityBurn = async (type: string, distance: number, duration: number, profile: UserProfile) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Estimate calories burned for a ${profile.weight}kg individual performing a ${type} mission. Distance: ${distance} meters. Duration: ${duration} seconds.`;
 
   const response = await ai.models.generateContent({
@@ -160,6 +163,7 @@ export const generatePeriodReview = async (
   workouts: WorkoutSession[], 
   periodType: 'week' | 'month'
 ) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const totalCals = meals.reduce((s, m) => s + (Number(m.calories) || 0), 0);
   const prompt = `Perform a high-level tactical review for a ${periodType}ly period. Pilot: ${profile.displayName}, Focus: Aggressive Bulking. Total: ${totalCals}kcal. Assess muscle building potential.`;
 
@@ -188,26 +192,36 @@ export const generatePeriodReview = async (
 };
 
 export const generateAudioBriefing = async (profile: UserProfile, meals: Meal[], workouts: WorkoutSession[]) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const totalCal = meals.reduce((s, m) => s + (Number(m.calories) || 0), 0);
-  const prompt = `Briefing for ${profile.displayName}. Fuel: ${totalCal} kcal today. Goal: Bulking. Provide a 30-second aggressive tactical briefing on their anabolic progress.`;
+  
+  // Simplify prompt to minimize potential 500 errors from complex instructions in TTS
+  const prompt = `Briefing for Pilot ${profile.displayName}. Current fuel levels: ${totalCal} calories today. Target: Maximum Muscle Hypertrophy. Operational Status: Aggressive Bulking Phase. Proceed with heavy lifting.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
     contents: [{ parts: [{ text: prompt }] }],
     config: {
-      responseModalities: [Modality.AUDIO],
+      // Use string literal to ensure compatibility
+      responseModalities: ["AUDIO"],
       speechConfig: {
         voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: 'Puck' },
+          // Switching to Kore as a fallback to see if voice 'Puck' causes the 500
+          prebuiltVoiceConfig: { voiceName: 'Kore' },
         },
       },
     },
   });
 
-  return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  const base64Data = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  if (!base64Data) {
+    throw new Error("No audio data returned from neural link.");
+  }
+  return base64Data;
 };
 
 export const calculateMacroTargets = async (profile: Partial<UserProfile>) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Calculate calorie and protein goals for Weight: ${profile.weight}kg, Goal: BULK (Maximum Muscle Gain). Provide aggressive but safe numbers.`,
@@ -235,6 +249,7 @@ export const calculateMacroTargets = async (profile: Partial<UserProfile>) => {
 };
 
 export const estimateMealMacros = async (mealDescription: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Analyze macros for a bulking athlete: "${mealDescription}". Focus on identifying calorie-dense ingredients.`,
@@ -267,6 +282,7 @@ export const estimateMealMacros = async (mealDescription: string) => {
 };
 
 export const estimateMacrosFromImage = async (base64Data: string, mimeType: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: {
@@ -304,6 +320,7 @@ export const estimateMacrosFromImage = async (base64Data: string, mimeType: stri
 };
 
 export const suggestSchedule = async (currentSchedule: string, goals: string) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Optimize this schedule for someone bulking: "${goals}". Current: "${currentSchedule}". Focus on meal timing and sleep for maximum anabolism.`,
