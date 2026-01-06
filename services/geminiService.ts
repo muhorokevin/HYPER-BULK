@@ -1,12 +1,9 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { Meal, UserProfile, WorkoutSession } from "../types";
+import { Meal, UserProfile, WorkoutSession } from "../types.ts";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-/**
- * Helper to safely extract and parse JSON from AI responses that might include markdown backticks.
- */
 const safeJsonParse = (text: string) => {
   try {
     const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -17,9 +14,6 @@ const safeJsonParse = (text: string) => {
   }
 };
 
-/**
- * Uses Google Search to find popular running routes or trails in the user's area.
- */
 export const suggestRoutes = async (lat: number, lng: number) => {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -35,9 +29,6 @@ export const suggestRoutes = async (lat: number, lng: number) => {
   };
 };
 
-/**
- * Uses Google Maps to find gyms with good pricing and reviews nearby.
- */
 export const findLocalGyms = async (lat: number, lng: number) => {
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
@@ -61,9 +52,6 @@ export const findLocalGyms = async (lat: number, lng: number) => {
   };
 };
 
-/**
- * Generates a hyper-personalized workout plan considering equipment and environment.
- */
 export const generatePersonalizedWorkout = async (profile: UserProfile, intent: string, environment: string) => {
   const equipment = profile.availableEquipment?.join(', ') || 'None (Bodyweight only)';
   const prompt = `Generate a tactical workout plan. 

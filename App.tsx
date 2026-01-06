@@ -15,14 +15,14 @@ import {
   X,
   Navigation
 } from 'lucide-react';
-import Dashboard from './pages/Dashboard';
-import MealsPage from './pages/MealsPage';
-import WorkoutPage from './pages/WorkoutPage';
-import SchedulePage from './pages/SchedulePage';
-import SettingsPage from './pages/SettingsPage';
-import ReviewPage from './pages/ReviewPage';
-import ActivityPage from './pages/ActivityPage';
-import { Meal, WorkoutSession, ScheduleItem, UserProfile, WaterLog, WeightEntry, ActivityRecord } from './types';
+import Dashboard from './pages/Dashboard.tsx';
+import MealsPage from './pages/MealsPage.tsx';
+import WorkoutPage from './pages/WorkoutPage.tsx';
+import SchedulePage from './pages/SchedulePage.tsx';
+import SettingsPage from './pages/SettingsPage.tsx';
+import ReviewPage from './pages/ReviewPage.tsx';
+import ActivityPage from './pages/ActivityPage.tsx';
+import { Meal, WorkoutSession, ScheduleItem, UserProfile, WaterLog, WeightEntry, ActivityRecord } from './types.ts';
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -68,7 +68,9 @@ const App: React.FC = () => {
       dailyCalorieGoal: 3000,
       proteinGoal: 180,
       goalType: 'bulk',
-      waterGoal: 3000
+      waterGoal: 3000,
+      availableEquipment: [],
+      preferredGym: ''
     };
   });
 
@@ -95,7 +97,6 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <div className="flex h-screen bg-[#020203] overflow-hidden text-zinc-100">
-        {/* Mobile Backdrop */}
         {isSidebarOpen && (
           <div 
             className="fixed inset-0 bg-black/90 z-[60] lg:hidden backdrop-blur-xl animate-in fade-in duration-300" 
@@ -103,7 +104,6 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* Sidebar */}
         <aside className={`
           fixed inset-y-0 left-0 z-[70] w-72 bg-zinc-950 border-r border-zinc-900 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] lg:static lg:translate-x-0
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -159,7 +159,6 @@ const App: React.FC = () => {
           </div>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
           <header className="h-24 flex items-center justify-between px-10 bg-zinc-950/50 backdrop-blur-xl border-b border-zinc-900 sticky top-0 z-50">
             <button 
@@ -197,7 +196,7 @@ const App: React.FC = () => {
                 <Route path="/" element={<Dashboard meals={meals} profile={profile} schedule={schedule} workouts={workouts} water={water} setWater={setWater} weightHistory={weightHistory} setWeightHistory={setWeightHistory} />} />
                 <Route path="/meals" element={<MealsPage meals={meals} setMeals={setMeals} profile={profile} setProfile={setProfile} />} />
                 <Route path="/activity" element={<ActivityPage activities={activities} setActivities={setActivities} profile={profile} />} />
-                <Route path="/workouts" element={<WorkoutPage workouts={workouts} setWorkouts={setWorkouts} />} />
+                <Route path="/workouts" element={<WorkoutPage workouts={workouts} setWorkouts={setWorkouts} profile={profile} setProfile={setProfile} />} />
                 <Route path="/schedule" element={<SchedulePage schedule={schedule} setSchedule={setSchedule} />} />
                 <Route path="/review" element={<ReviewPage meals={meals} workouts={workouts} profile={profile} />} />
                 <Route path="/settings" element={<SettingsPage profile={profile} setProfile={setProfile} />} />

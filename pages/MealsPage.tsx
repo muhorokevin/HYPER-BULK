@@ -17,20 +17,17 @@ import {
   CalendarDays,
   Scale
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Meal, MealSlot, UserProfile } from '../types';
-import { estimateMealMacros, analyzeFuelVariance } from '../services/geminiService';
+import { Meal, MealSlot, UserProfile } from '../types.ts';
+import { estimateMealMacros, analyzeFuelVariance } from '../services/geminiService.ts';
 
-interface MealsPageProps {
+const STRATEGIC_SLOTS: MealSlot[] = ['BREAKFAST', '10AM SNACK', 'LUNCH', '4PM SNACK', 'SUPPER', 'OTHER'];
+
+const MealsPage: React.FC<{
   meals: Meal[];
   setMeals: React.Dispatch<React.SetStateAction<Meal[]>>;
   profile: UserProfile;
   setProfile: React.Dispatch<React.SetStateAction<UserProfile>>;
-}
-
-const STRATEGIC_SLOTS: MealSlot[] = ['BREAKFAST', '10AM SNACK', 'LUNCH', '4PM SNACK', 'SUPPER', 'OTHER'];
-
-const MealsPage: React.FC<MealsPageProps> = ({ meals, setMeals, profile }) => {
+}> = ({ meals, setMeals, profile }) => {
   const [description, setDescription] = useState('');
   const [selectedSlot, setSelectedSlot] = useState<MealSlot>('BREAKFAST');
   const [isEstimating, setIsEstimating] = useState(false);
@@ -72,7 +69,6 @@ const MealsPage: React.FC<MealsPageProps> = ({ meals, setMeals, profile }) => {
   const runVarianceAnalysis = async () => {
     setIsAnalyzing(true);
     try {
-      // Find today's plan from yesterday's planning
       const todayPlan = meals.filter(m => {
         const d = new Date(m.timestamp).toISOString().split('T')[0];
         return d === todayStr && m.isPlanned;
@@ -92,15 +88,14 @@ const MealsPage: React.FC<MealsPageProps> = ({ meals, setMeals, profile }) => {
   };
 
   const totals = useMemo(() => ({
-    cal: currentMeals.reduce((s, m) => s + (typeof m.calories === 'number' ? m.calories : 0), 0),
-    prot: currentMeals.reduce((s, m) => s + (typeof m.protein === 'number' ? m.protein : 0), 0)
+    cal: currentMeals.reduce((s, m) => s + (Number(m.calories) || 0), 0),
+    prot: currentMeals.reduce((s, m) => s + (Number(m.protein) || 0), 0)
   }), [currentMeals]);
 
   const calProgress = Math.min((totals.cal / profile.dailyCalorieGoal) * 100, 100);
 
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-24">
-      {/* HUD Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-zinc-900 pb-8 relative overflow-hidden">
         <div className="scanline"></div>
         <div className="flex-1 space-y-4">
@@ -133,45 +128,6 @@ const MealsPage: React.FC<MealsPageProps> = ({ meals, setMeals, profile }) => {
         </div>
       </div>
 
-      {viewMode === 'LOG' && (
-        <div className="flex justify-end px-4">
-           <button 
-             onClick={runVarianceAnalysis} 
-             disabled={isAnalyzing}
-             className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-6 py-3 rounded-2xl text-[10px] font-black text-zinc-400 tracking-widest uppercase hover:text-lime-400 hover:border-lime-400/30 transition-tactical"
-           >
-             {isAnalyzing ? <Loader2 className="animate-spin" size={14} /> : <Scale size={14} />}
-             Analyze Variance (Plan vs Actual)
-           </button>
-        </div>
-      )}
-
-      {varianceReport && (
-        <div className="glass-panel p-8 rounded-[2rem] border-lime-400/20 animate-in slide-in-from-top-4 duration-500 hud-border">
-           <div className="flex items-center justify-between mb-6">
-              <h4 className="text-[11px] font-black text-lime-400 uppercase tracking-[0.4em]">Tactical Variance Report</h4>
-              <button onClick={() => setVarianceReport(null)} className="text-zinc-600 hover:text-white"><Plus size={18} className="rotate-45" /></button>
-           </div>
-           <div className="grid md:grid-cols-3 gap-8 items-center">
-              <div className="text-center md:text-left space-y-1">
-                 <p className="text-4xl font-black text-white tracking-tighter">{typeof varianceReport.adherenceScore === 'object' ? '0' : varianceReport.adherenceScore}%</p>
-                 <p className="text-[10px] font-black text-zinc-600 tracking-widest uppercase">Adherence Score</p>
-              </div>
-              <div className="md:col-span-2 space-y-4">
-                 <p className="text-sm text-zinc-300 font-bold italic leading-relaxed">"{typeof varianceReport.verdict === 'object' ? JSON.stringify(varianceReport.verdict) : varianceReport.verdict}"</p>
-                 <div className="p-4 bg-lime-400/10 rounded-xl border border-lime-400/20 flex items-start gap-4">
-                    <ShieldCheck className="text-lime-400 shrink-0" size={20} />
-                    <div>
-                       <p className="text-[9px] font-black text-lime-400 uppercase tracking-widest mb-1">Corrective Action</p>
-                       <p className="text-xs text-zinc-400 font-bold">{typeof varianceReport.correctiveAction === 'object' ? JSON.stringify(varianceReport.correctiveAction) : varianceReport.correctiveAction}</p>
-                    </div>
-                 </div>
-              </div>
-           </div>
-        </div>
-      )}
-
-      {/* Entry Interface */}
       <div className="glass-panel rounded-[2.5rem] p-4 relative group hud-border">
         <form onSubmit={handleAddFuel} className="relative flex flex-col md:flex-row items-stretch gap-4">
           <div className="relative flex-1">
@@ -209,58 +165,8 @@ const MealsPage: React.FC<MealsPageProps> = ({ meals, setMeals, profile }) => {
           </button>
         ))}
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 space-y-10">
-          <div className="grid gap-6">
-            {STRATEGIC_SLOTS.map(slot => {
-              const slotMeals = currentMeals.filter(m => m.slot === slot);
-              return (
-                <div key={slot} className={`glass-panel rounded-[2rem] overflow-hidden transition-tactical ${slotMeals.length > 0 ? 'border-l-4 border-l-lime-400 shadow-xl' : 'border-zinc-900 opacity-40'}`}>
-                  <div className="px-10 py-5 bg-zinc-950/40 flex items-center justify-between border-b border-zinc-900/50">
-                    <span className="text-[10px] font-black text-zinc-500 tracking-[0.4em] uppercase">{slot}</span>
-                  </div>
-                  {slotMeals.length > 0 ? (
-                    <div className="p-10 space-y-8">
-                      {slotMeals.map(meal => (
-                        <div key={meal.id} className="flex items-center justify-between gap-8 group/row border-b border-zinc-900/30 pb-8 last:pb-0 last:border-0">
-                          <div className="flex-1 space-y-4">
-                             <h4 className="text-2xl font-black text-white capitalize tracking-tighter">{meal.name}</h4>
-                             <div className="flex gap-4">
-                                <RecordBadge label="Energy" value={meal.calories} unit="Kcal" />
-                                <RecordBadge label="Protein" value={meal.protein} unit="g" />
-                             </div>
-                          </div>
-                          <button 
-                            onClick={() => setMeals(meals.filter(m => m.id !== meal.id))} 
-                            className="p-4 text-zinc-800 hover:text-red-500 transition-tactical opacity-0 group-hover/row:opacity-100"
-                          >
-                            <Trash2 size={20} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-10 text-center flex flex-col items-center justify-center gap-4">
-                       <Activity size={32} className="text-zinc-900" />
-                       <span className="text-[10px] font-black text-zinc-800 uppercase tracking-[0.5em] italic">No {viewMode === 'PLAN' ? 'Plan' : 'Data'} Node</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
-
-const RecordBadge: React.FC<{ label: string, value: number, unit: string }> = ({ label, value, unit }) => (
-  <div className="px-3 py-1.5 bg-zinc-900/50 border border-zinc-800/50 rounded-lg flex items-center gap-3">
-    <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{label}</span>
-    <span className="text-xs font-black text-zinc-300 mono">{value}{unit}</span>
-  </div>
-);
 
 export default MealsPage;

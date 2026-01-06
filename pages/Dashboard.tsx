@@ -27,19 +27,8 @@ import {
   ChevronRight,
   ShieldCheck
 } from 'lucide-react';
-import { Meal, UserProfile, ScheduleItem, WorkoutSession, WaterLog, WeightEntry } from '../types';
-import { generateAudioBriefing } from '../services/geminiService';
-
-interface DashboardProps {
-  meals: Meal[];
-  profile: UserProfile;
-  schedule: ScheduleItem[];
-  workouts: WorkoutSession[];
-  water: WaterLog[];
-  setWater: React.Dispatch<React.SetStateAction<WaterLog[]>>;
-  weightHistory: WeightEntry[];
-  setWeightHistory: React.Dispatch<React.SetStateAction<WeightEntry[]>>;
-}
+import { Meal, UserProfile, ScheduleItem, WorkoutSession, WaterLog, WeightEntry } from '../types.ts';
+import { generateAudioBriefing } from '../services/geminiService.ts';
 
 function decodeBase64(base64: string) {
   const binaryString = atob(base64);
@@ -70,7 +59,16 @@ async function decodeAudioData(
   return buffer;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ 
+const Dashboard: React.FC<{
+  meals: Meal[];
+  profile: UserProfile;
+  schedule: ScheduleItem[];
+  workouts: WorkoutSession[];
+  water: WaterLog[];
+  setWater: React.Dispatch<React.SetStateAction<WaterLog[]>>;
+  weightHistory: WeightEntry[];
+  setWeightHistory: React.Dispatch<React.SetStateAction<WeightEntry[]>>;
+}> = ({ 
   meals, 
   profile, 
   workouts, 
@@ -136,7 +134,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           const weight = parseFloat(ex.weight) || 0;
           const repsArr = ex.reps.split('-').map(r => parseInt(r));
           const avgReps = repsArr.length > 1 ? (repsArr[0] + repsArr[1]) / 2 : repsArr[0] || 0;
-          return sum + (weight * avgReps * ex.sets);
+          return sum + (weight * avgReps * (Number(ex.sets) || 1));
         }, 0);
         return { 
           date: new Date(w.timestamp).toLocaleDateString('en-US', { weekday: 'short' }), 
@@ -172,7 +170,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-20">
-      {/* HUD Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-zinc-900 pb-8 relative overflow-hidden">
         <div className="scanline"></div>
         <div className="flex-1 space-y-4">
@@ -212,7 +209,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Primary Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Total Fuel" value={totalCalories.toLocaleString()} unit="KCAL" goal={profile.dailyCalorieGoal} icon={<Zap size={20} />} variant="lime" />
         <StatCard title="Bio-Load" value={`${totalProtein}`} unit="GRAMS" goal={profile.proteinGoal} icon={<Activity size={20} />} variant="cyan" />
@@ -221,7 +217,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Tension/Volume Graph */}
         <div className="lg:col-span-8 glass-panel rounded-[2.5rem] p-10 hud-border">
            <div className="flex items-center justify-between mb-12">
              <div className="space-y-1">
@@ -263,7 +258,6 @@ const Dashboard: React.FC<DashboardProps> = ({
            </div>
         </div>
 
-        {/* Hydration Widget */}
         <div className="lg:col-span-4 glass-panel rounded-[2.5rem] p-10 flex flex-col justify-between relative overflow-hidden hud-border">
            <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none">
               <Droplets size={200} />
@@ -299,71 +293,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               <WaterBtn amount={500} onClick={() => addWater(500)} label="Bottle" />
               <WaterBtn amount={1000} onClick={() => addWater(1000)} label="Shaker" />
            </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Calorie Trends */}
-        <div className="lg:col-span-8 glass-panel rounded-[2.5rem] p-10 hud-border">
-          <div className="flex items-center justify-between mb-12">
-            <h3 className="text-[11px] font-black text-zinc-500 tracking-[0.4em] uppercase">Fuel Intake Variance</h3>
-            <div className="flex items-center gap-3">
-                <Target size={14} className="text-zinc-800" />
-                <span className="text-[9px] font-black text-zinc-700 uppercase tracking-[0.2em] mono">Limit: {profile.dailyCalorieGoal} KCAL</span>
-            </div>
-          </div>
-          <div className="h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={calorieHistory}>
-                <defs>
-                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#a3e635" stopOpacity={1} />
-                    <stop offset="100%" stopColor="#a3e635" stopOpacity={0.4} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#3f3f46', fontSize: 10, fontWeight: 900 }} />
-                <YAxis hide domain={[0, profile.dailyCalorieGoal + 1000]} />
-                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '12px' }} />
-                <Bar dataKey="kcal" radius={[4, 4, 0, 0]} barSize={40}>
-                  {calorieHistory.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.kcal >= (profile.dailyCalorieGoal || 2500) ? 'url(#barGradient)' : '#18181b'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Macros Pie */}
-        <div className="lg:col-span-4 glass-panel rounded-[2.5rem] p-10 flex flex-col hud-border">
-          <h3 className="text-[11px] font-black text-zinc-500 tracking-[0.4em] uppercase mb-12">Bio-Mass Allocation</h3>
-          <div className="h-[220px] relative mb-10">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={macroData} cx="50%" cy="50%" innerRadius={70} outerRadius={95} paddingAngle={12} dataKey="value" stroke="none">
-                  {macroData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-4xl font-black text-white tracking-tighter mono leading-none">{totalProtein + totalCarbs + totalFats}</span>
-              <span className="text-[9px] font-black text-zinc-600 tracking-widest uppercase mt-2">Grams Total</span>
-            </div>
-          </div>
-          <div className="space-y-4 px-4">
-            {macroData.map(macro => (
-              <div key={macro.name} className="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/40 border border-zinc-800/30">
-                <div className="flex items-center gap-4">
-                  <div className="w-1 h-6 rounded-full shadow-[0_0_8px_currentColor]" style={{ backgroundColor: macro.color }} />
-                  <span className="text-[10px] font-black text-zinc-400 tracking-widest uppercase">{macro.name}</span>
-                </div>
-                <span className="text-sm font-black text-white mono">{macro.value}g</span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>
