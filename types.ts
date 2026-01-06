@@ -89,5 +89,4 @@ export interface UserProfile {
   stepGoal?: number;
   availableEquipment?: string[];
   preferredGym?: string;
-  pin?: string | null;
 }

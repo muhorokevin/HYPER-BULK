@@ -78,8 +78,7 @@ const App: React.FC = () => {
   }, [meals]);
 
   if (isLocked) {
-    // Fixed TS2322: profile.pin is string | null | undefined, storedPin expects string | null
-    return <LockScreen storedPin={profile.pin ?? null} onUnlock={() => setIsLocked(false)} />;
+    return <LockScreen storedPin={profile.pin} onUnlock={() => setIsLocked(false)} />;
   }
 
   return (
@@ -234,7 +233,7 @@ const NavItem: React.FC<{ to: string, icon: React.ReactNode, label: string, onCl
           : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/40'}
       `}
     >
-      {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-lime-400 rounded-r-full shadow-[0_0_10px_#a3e635] overflow-hidden"></div>}
+      {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-lime-400 rounded-r-full shadow-[0_0_10px_#a3e635]"></div>}
       <span className={`${isActive ? 'text-lime-400' : 'group-hover:text-white transition-colors'}`}>
         {icon}
       </span>
