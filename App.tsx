@@ -14,7 +14,8 @@ import {
   X,
   Navigation,
   Flame,
-  Radio
+  Radio,
+  Lock
 } from 'lucide-react';
 import Dashboard from './pages/Dashboard.tsx';
 import MealsPage from './pages/MealsPage.tsx';
@@ -24,66 +25,50 @@ import SettingsPage from './pages/SettingsPage.tsx';
 import ReviewPage from './pages/ReviewPage.tsx';
 import ActivityPage from './pages/ActivityPage.tsx';
 import NeuralLink from './components/NeuralLink.tsx';
+import LockScreen from './components/LockScreen.tsx';
+import { vault } from './services/secureVault.ts';
 import { Meal, WorkoutSession, ScheduleItem, UserProfile, WaterLog, WeightEntry, ActivityRecord } from './types.ts';
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNeuralLinkOpen, setIsNeuralLinkOpen] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
   
-  const [meals, setMeals] = useState<Meal[]>(() => {
-    const saved = localStorage.getItem('hb_meals');
-    return saved ? JSON.parse(saved) : [];
-  });
-  
-  const [workouts, setWorkouts] = useState<WorkoutSession[]>(() => {
-    const saved = localStorage.getItem('hb_workouts');
-    return saved ? JSON.parse(saved) : [];
-  });
-  
-  const [schedule, setSchedule] = useState<ScheduleItem[]>(() => {
-    const saved = localStorage.getItem('hb_schedule');
-    return saved ? JSON.parse(saved) : [];
+  // SECURE INITIALIZATION
+  const [meals, setMeals] = useState<Meal[]>(() => vault.load('hb_meals') || []);
+  const [workouts, setWorkouts] = useState<WorkoutSession[]>(() => vault.load('hb_workouts') || []);
+  const [schedule, setSchedule] = useState<ScheduleItem[]>(() => vault.load('hb_schedule') || []);
+  const [water, setWater] = useState<WaterLog[]>(() => vault.load('hb_water') || []);
+  const [weightHistory, setWeightHistory] = useState<WeightEntry[]>(() => vault.load('hb_weight_history') || []);
+  const [activities, setActivities] = useState<ActivityRecord[]>(() => vault.load('hb_activities') || []);
+  const [profile, setProfile] = useState<UserProfile>(() => vault.load('hb_profile') || {
+    displayName: 'PILOT_01',
+    weight: 75,
+    height: 180,
+    age: 25,
+    activityLevel: 'moderate',
+    dailyCalorieGoal: 3000,
+    proteinGoal: 180,
+    goalType: 'bulk',
+    waterGoal: 3000,
+    availableEquipment: [],
+    preferredGym: '',
+    pin: null
   });
 
-  const [water, setWater] = useState<WaterLog[]>(() => {
-    const saved = localStorage.getItem('hb_water');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // PERSISTENCE SYNC
+  useEffect(() => { vault.save('hb_meals', meals); }, [meals]);
+  useEffect(() => { vault.save('hb_workouts', workouts); }, [workouts]);
+  useEffect(() => { vault.save('hb_schedule', schedule); }, [schedule]);
+  useEffect(() => { vault.save('hb_profile', profile); }, [profile]);
+  useEffect(() => { vault.save('hb_water', water); }, [water]);
+  useEffect(() => { vault.save('hb_weight_history', weightHistory); }, [weightHistory]);
+  useEffect(() => { vault.save('hb_activities', activities); }, [activities]);
 
-  const [weightHistory, setWeightHistory] = useState<WeightEntry[]>(() => {
-    const saved = localStorage.getItem('hb_weight_history');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [activities, setActivities] = useState<ActivityRecord[]>(() => {
-    const saved = localStorage.getItem('hb_activities');
-    return saved ? JSON.parse(saved) : [];
-  });
-  
-  const [profile, setProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('hb_profile');
-    return saved ? JSON.parse(saved) : {
-      displayName: 'PILOT_01',
-      weight: 75,
-      height: 180,
-      age: 25,
-      activityLevel: 'moderate',
-      dailyCalorieGoal: 3000,
-      proteinGoal: 180,
-      goalType: 'bulk',
-      waterGoal: 3000,
-      availableEquipment: [],
-      preferredGym: ''
-    };
-  });
-
-  useEffect(() => { localStorage.setItem('hb_meals', JSON.stringify(meals)); }, [meals]);
-  useEffect(() => { localStorage.setItem('hb_workouts', JSON.stringify(workouts)); }, [workouts]);
-  useEffect(() => { localStorage.setItem('hb_schedule', JSON.stringify(schedule)); }, [schedule]);
-  useEffect(() => { localStorage.setItem('hb_profile', JSON.stringify(profile)); }, [profile]);
-  useEffect(() => { localStorage.setItem('hb_water', JSON.stringify(water)); }, [water]);
-  useEffect(() => { localStorage.setItem('hb_weight_history', JSON.stringify(weightHistory)); }, [weightHistory]);
-  useEffect(() => { localStorage.setItem('hb_activities', JSON.stringify(activities)); }, [activities]);
+  // INITIAL LOCK CHECK
+  useEffect(() => {
+    if (profile.pin) setIsLocked(true);
+  }, []);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -91,6 +76,10 @@ const App: React.FC = () => {
     const dates = new Set(meals.filter(m => !m.isPlanned).map(m => new Date(m.timestamp).toISOString().split('T')[0]));
     return dates.size;
   }, [meals]);
+
+  if (isLocked) {
+    return <LockScreen storedPin={profile.pin} onUnlock={() => setIsLocked(false)} />;
+  }
 
   return (
     <HashRouter>
@@ -180,6 +169,16 @@ const App: React.FC = () => {
             </button>
             
             <div className="flex-1 flex justify-end items-center gap-8">
+              {profile.pin && (
+                <button 
+                  onClick={() => setIsLocked(true)}
+                  className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-500 hover:text-lime-400 transition-all"
+                  title="Lock Tactical Interface"
+                >
+                  <Lock size={18} />
+                </button>
+              )}
+              
               <button 
                 onClick={() => setIsNeuralLinkOpen(true)}
                 className="hidden md:flex items-center gap-3 px-4 py-2 bg-zinc-900/40 border border-zinc-800 rounded-full hover:border-lime-400/50 transition-tactical group"

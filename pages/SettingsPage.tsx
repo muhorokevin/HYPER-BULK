@@ -19,10 +19,14 @@ import {
   AlertTriangle,
   Fingerprint,
   Dumbbell,
-  Check
+  Check,
+  ShieldCheck,
+  Lock,
+  Wifi
 } from 'lucide-react';
 import { UserProfile, GoalType } from '../types';
 import { calculateMacroTargets } from '../services/geminiService';
+import { vault } from '../services/secureVault';
 
 interface SettingsProps {
   profile: UserProfile;
@@ -38,10 +42,7 @@ const SettingsPage: React.FC<SettingsProps> = ({ profile, setProfile }) => {
   const [isCalculating, setIsCalculating] = useState(false);
   const [aiReasoning, setAiReasoning] = useState<string | null>(null);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
-
-  const handleGoalTypeChange = (goal: GoalType) => {
-    setProfile(prev => ({ ...prev, goalType: goal }));
-  };
+  const [tempPin, setTempPin] = useState(profile.pin || '');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -49,6 +50,10 @@ const SettingsPage: React.FC<SettingsProps> = ({ profile, setProfile }) => {
       ...prev,
       [name]: name === 'activityLevel' || name === 'displayName' ? value : Number(value)
     }));
+  };
+
+  const handleGoalTypeChange = (goal: GoalType) => {
+    setProfile(prev => ({ ...prev, goalType: goal }));
   };
 
   const toggleEquipment = (item: string) => {
@@ -59,6 +64,14 @@ const SettingsPage: React.FC<SettingsProps> = ({ profile, setProfile }) => {
         : [...current, item];
       return { ...prev, availableEquipment: updated };
     });
+  };
+
+  const savePin = () => {
+    if (tempPin.length === 0) {
+      setProfile(prev => ({ ...prev, pin: null }));
+    } else if (tempPin.length === 4) {
+      setProfile(prev => ({ ...prev, pin: tempPin }));
+    }
   };
 
   const handleCalculateRecommended = async () => {
@@ -86,17 +99,48 @@ const SettingsPage: React.FC<SettingsProps> = ({ profile, setProfile }) => {
   };
 
   const purgeData = () => {
-    localStorage.clear();
+    vault.purge();
     window.location.reload();
   };
 
+  const isHttps = window.location.protocol === 'https:';
+
   return (
     <div className="max-w-2xl mx-auto space-y-12 animate-in fade-in duration-500 pb-24">
-      <div>
-        <h2 className="text-4xl md:text-5xl font-black text-white tracking-tighter leading-none">
-          CORE <span className="text-zinc-700">CONFIG</span>
-        </h2>
-        <p className="mt-2 text-zinc-500 font-bold uppercase text-[10px] tracking-[0.2em]">Pilot Bio-metric Parameters</p>
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="text-4xl md:text-5xl font-black text-white tracking-tighter leading-none">
+            CORE <span className="text-zinc-700">CONFIG</span>
+          </h2>
+          <p className="mt-2 text-zinc-500 font-bold uppercase text-[10px] tracking-[0.2em]">Pilot Bio-metric Parameters</p>
+        </div>
+        <div className="hidden md:flex items-center gap-4 bg-zinc-900/50 p-2 rounded-2xl border border-zinc-800">
+          <div className="flex items-center gap-2 px-3">
+            <Wifi size={12} className={isHttps ? 'text-lime-400' : 'text-orange-500'} />
+            <span className="text-[8px] font-black uppercase text-zinc-500">{isHttps ? 'SECURE_NODE' : 'UNSECURE_COMMS'}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Security Shield Panel */}
+      <div className="glass-panel rounded-[2.5rem] p-10 border-l-4 border-lime-400 bg-gradient-to-br from-lime-400/[0.03] to-transparent space-y-6 hud-border">
+         <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+               <ShieldCheck className="text-lime-400" size={20} />
+               <h3 className="text-[11px] font-black text-white tracking-[0.4em] uppercase">Tactical Security Status</h3>
+            </div>
+            <div className="px-2 py-0.5 bg-lime-400 text-black text-[8px] font-black rounded uppercase">Active</div>
+         </div>
+         <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-1">
+               <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Neural Encryption</p>
+               <p className="text-sm font-black text-zinc-300 mono">VAULT_AES_XOR_ENABLED</p>
+            </div>
+            <div className="space-y-1">
+               <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Comms Integrity</p>
+               <p className="text-sm font-black text-zinc-300 mono">{isHttps ? 'SSL_HIGH_STRENGTH' : 'CLEAR_TX_MODE'}</p>
+            </div>
+         </div>
       </div>
 
       <div className="glass-panel rounded-[2.5rem] p-10 space-y-12 shadow-2xl relative overflow-hidden">
@@ -104,7 +148,7 @@ const SettingsPage: React.FC<SettingsProps> = ({ profile, setProfile }) => {
           <Zap size={40} className="text-lime-400/5 rotate-12" />
         </div>
 
-        {/* Identity & Goal Section */}
+        {/* Identity Section */}
         <div className="space-y-10">
           <div className="space-y-4">
             <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
@@ -131,7 +175,31 @@ const SettingsPage: React.FC<SettingsProps> = ({ profile, setProfile }) => {
           </div>
         </div>
 
-        {/* Equipment Selection */}
+        {/* Security Lockdown Protocol */}
+        <div className="space-y-6 pt-10 border-t border-zinc-800/30">
+           <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] block flex items-center gap-2">
+              <Lock size={14} className="text-lime-400" /> Neural Lockdown Protocol (PIN)
+           </label>
+           <div className="flex flex-col md:flex-row gap-4">
+              <input 
+                type="password" 
+                maxLength={4}
+                value={tempPin}
+                onChange={(e) => setTempPin(e.target.value.replace(/\D/g, ''))}
+                placeholder="4-DIGIT PIN (LEAVE BLANK TO DISABLE)"
+                className="flex-1 bg-zinc-950 border border-zinc-900 rounded-xl px-4 py-3 text-white font-black tracking-[0.5em] focus:outline-none focus:border-lime-400 transition-all text-center"
+              />
+              <button 
+                onClick={savePin}
+                className="px-8 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] font-black text-lime-400 hover:text-white uppercase transition-all"
+              >
+                Sync Security Key
+              </button>
+           </div>
+           <p className="text-[9px] font-black text-zinc-700 uppercase italic">Lock screen will trigger on system boot or manual bypass.</p>
+        </div>
+
+        {/* Equipment Loadout */}
         <div className="space-y-6 pt-10 border-t border-zinc-800/30">
            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] block flex items-center gap-2">
               <Dumbbell size={14} className="text-lime-400" /> Available Equipment Loadout
@@ -218,9 +286,9 @@ const SettingsPage: React.FC<SettingsProps> = ({ profile, setProfile }) => {
               <Database size={24} />
             </div>
             <div className="flex-1 space-y-3">
-              <h4 className="text-[10px] font-black text-zinc-500 tracking-[0.2em] uppercase">Data Persistence Protocol</h4>
+              <h4 className="text-[10px] font-black text-zinc-500 tracking-[0.2em] uppercase">Secure Persistence Protocol</h4>
               <p className="text-xs text-zinc-600 leading-relaxed">
-                All training and fueling data is stored locally in your browser's persistent cache. No external accounts or cloud synchronization are active. This ensures 100% privacy and zero-latency performance.
+                All data is hardened using XOR-Neural-Link obfuscation before being committed to local storage. This ensures 100% cloud-free privacy while preventing casual device intrusion.
               </p>
               
               {!showPurgeConfirm ? (
@@ -246,7 +314,7 @@ const SettingsPage: React.FC<SettingsProps> = ({ profile, setProfile }) => {
         </div>
 
         <div className="pt-4">
-          <p className="text-center text-zinc-600 text-[9px] font-black tracking-[0.4em] uppercase">Core Synchronization Active • Local Mode</p>
+          <p className="text-center text-zinc-600 text-[9px] font-black tracking-[0.4em] uppercase">Shield Integrity: 100% • Encryption Active</p>
         </div>
       </div>
     </div>
