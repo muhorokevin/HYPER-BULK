@@ -87,12 +87,6 @@ const App: React.FC = () => {
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const dailyCalories = useMemo(() => meals.filter(m => {
-    const d = new Date(m.timestamp).toISOString().split('T')[0];
-    return d === todayStr && !m.isPlanned;
-  }).reduce((sum, m) => sum + (Number(m.calories) || 0), 0), [meals, todayStr]);
-
   const streak = useMemo(() => {
     const dates = new Set(meals.filter(m => !m.isPlanned).map(m => new Date(m.timestamp).toISOString().split('T')[0]));
     return dates.size;

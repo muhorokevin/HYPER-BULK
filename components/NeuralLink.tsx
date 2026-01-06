@@ -177,7 +177,7 @@ const NeuralLink: React.FC<NeuralLinkProps> = ({ isOpen, onClose, profile, meals
               setTranscription(prev => [...prev.slice(-4), `AI: ${message.serverContent?.outputTranscription?.text}`]);
             }
 
-            const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+            const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
             if (base64Audio && audioContextsRef.current) {
               setIsTalking(true);
               const ctx = audioContextsRef.current.output;

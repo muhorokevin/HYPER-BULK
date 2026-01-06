@@ -1,15 +1,13 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Navigation, 
   MapPin, 
-  Zap, 
   Clock, 
   Trash2, 
   Play, 
   Square, 
   Loader2, 
-  Activity, 
   Flame,
   History,
   Radar,
@@ -76,7 +74,6 @@ const ActivityPage: React.FC<ActivityPageProps> = ({ activities, setActivities, 
         pathRef.current.push({ lat: latitude, lng: longitude });
       },
       (err) => console.error(err),
-      // Fix: Removed non-standard distanceFilter property from PositionOptions
       { enableHighAccuracy: true }
     );
     setWatchId(id);
