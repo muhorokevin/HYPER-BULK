@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { 
@@ -78,7 +77,7 @@ const App: React.FC = () => {
   }, [meals]);
 
   if (isLocked) {
-    return <LockScreen storedPin={profile.pin} onUnlock={() => setIsLocked(false)} />;
+    return <LockScreen storedPin={profile.pin ?? null} onUnlock={() => setIsLocked(false)} />;
   }
 
   return (
